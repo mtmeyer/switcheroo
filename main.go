@@ -2,10 +2,18 @@ package main
 
 import (
 	"fmt"
-	"switcheroo/src"
+	"log"
+	"switcheroo/utils"
 )
 
 func main() {
-	config, _ := src.ParseConfig()
-	fmt.Println(config.Directories)
+	config, _ := utils.ParseConfig()
+
+	directories, err := utils.GetAllDirectoryContents(config.Directories)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(directories)
 }

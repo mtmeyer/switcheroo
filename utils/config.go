@@ -3,12 +3,12 @@ package utils
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"os"
 )
 
 type Config struct {
-	Directories []string `json:"directories"`
+	Directories map[string]string `json:"directories"`
 }
 
 func GetConfigFilePath() (string, error) {
@@ -42,7 +42,7 @@ func ParseConfig() (*Config, error) {
 
 	defer jsonFile.Close()
 
-	jsonBytes, err := ioutil.ReadAll(jsonFile)
+	jsonBytes, err := io.ReadAll(jsonFile)
 
 	if err != nil {
 		return nil, err
