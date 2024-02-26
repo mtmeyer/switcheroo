@@ -9,7 +9,11 @@ import (
 )
 
 func main() {
-	config, _ := utils.ParseConfig()
+	config, err := utils.ParseConfig()
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	directories, err := utils.GetAllDirectoryContents(config.Directories)
 
@@ -36,5 +40,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Selected index: %d", selectedIndex)
+	output := utils.DetermineOutput(config, selectedIndex, directories)
+
+	fmt.Printf("%s", output)
 }

@@ -9,6 +9,8 @@ import (
 
 type Config struct {
 	Directories map[string]string `json:"directories"`
+	Output      string            `json:"output"`
+	Plugins     []string          `json:"plugins"`
 }
 
 func GetConfigFilePath() (string, error) {
