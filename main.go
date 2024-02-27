@@ -11,6 +11,8 @@ import (
 func main() {
 	config, err := utils.ParseConfig()
 
+	utils.InitLua()
+
 	if err != nil {
 		log.Fatal(err)
 	}
