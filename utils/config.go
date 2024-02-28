@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path"
 )
 
 type Config struct {
@@ -13,27 +14,32 @@ type Config struct {
 	Plugins     []string          `json:"plugins"`
 }
 
-func GetConfigFilePath() (string, error) {
-	const FILE_PATH = "/switcheroo/config.json"
+var ConfigDirectory string
+
+func GetConfigFileDirectory() (string, error) {
+	const CONFIG_DIR = "/switcheroo"
 
 	var xdgHome = os.Getenv("XDG_CONFIG_HOME")
 	if len(xdgHome) > 0 {
-		return xdgHome + FILE_PATH, nil
+		return path.Join(xdgHome, CONFIG_DIR), nil
 	}
 
 	var home = os.Getenv("HOME")
 	if len(home) > 0 {
-		return home + "/.config" + FILE_PATH, nil
+		return path.Join(home, "/.config", CONFIG_DIR), nil
 	}
 
 	return "", errors.New("No config directory found")
 }
 
 func ParseConfig() (*Config, error) {
-	configPath, err := GetConfigFilePath()
+	var configFileErr error
+	ConfigDirectory, configFileErr = GetConfigFileDirectory()
 
-	if err != nil {
-		return nil, err
+	configPath := path.Join(ConfigDirectory, "/config.json")
+
+	if configFileErr != nil {
+		return nil, configFileErr
 	}
 
 	jsonFile, err := os.Open(configPath)

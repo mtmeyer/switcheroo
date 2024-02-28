@@ -1,10 +1,13 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path"
 
 	"github.com/yuin/gluamapper"
-	lua "github.com/yuin/gopher-lua"
+	"github.com/yuin/gopher-lua"
 )
 
 var L *lua.LState
@@ -13,28 +16,63 @@ func InitLua() error {
 	L = lua.NewState()
 	defer L.Close()
 
-	// L.SetGlobal("require", luar.New(L, luaImport))
-	module := L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"setPluginType": func(L *lua.LState) int {
-			return setPluginType(L)
+	metadataData := []MetadataPluginData{
+		{
+			Name:            "some-name",
+			Path:            "/some/path",
+			ParentDirectory: "work",
 		},
-	})
-
-	L.SetGlobal("sw", module)
-
-	err := L.DoFile("test.lua")
-
-	if err != nil {
-		return err
+		{
+			Name:            "some-other-name",
+			Path:            "/some/other/path",
+			ParentDirectory: "personal",
+		},
 	}
+
+	metadata := GetMetadataFromPlugin("test", metadataData)
+
+	fmt.Println(metadata)
 
 	return nil
 }
 
-func AddItemMetadata(L *lua.LState) int {
-	data := L.ToString(1)
-	fmt.Println(data)
-	return 0
+type MetadataPluginData struct {
+	Path            string
+	Name            string
+	ParentDirectory string
+}
+
+func GetMetadataFromPlugin(pluginName string, data []MetadataPluginData) []string {
+	L = lua.NewState()
+	defer L.Close()
+
+	metadata := CallMetadataPlugin("test", MetadataInputToLuaTable(L, data))
+
+	var metadataStruct []string
+
+	if tbl, ok := metadata.(*lua.LTable); ok {
+		metadataStruct = LuaTableToStringSlice(tbl)
+	} else {
+		panic(errors.New("Return data type not valid"))
+	}
+
+	return metadataStruct
+}
+
+func CallMetadataPlugin(pluginName string, data *lua.LTable) lua.LValue {
+	LoadPlugin(pluginName, "metadata")
+
+	if err := L.CallByParam(lua.P{
+		Fn:      L.GetGlobal("GetPluginMetadata"),
+		NRet:    1,
+		Protect: true,
+	}, data); err != nil {
+		panic(err)
+	}
+	metadata := L.Get(-1) // returned value
+	L.Pop(1)              // remove received value
+
+	return metadata
 }
 
 type PluginConfig struct {
@@ -42,20 +80,29 @@ type PluginConfig struct {
 	Type string
 }
 
-func setPluginType(L *lua.LState) int {
-	luaTable := L.ToTable(1)
+func LoadPlugin(pluginName string, pluginType string) {
+	// Find and load plugin if exists
+	pluginPath := path.Join(ConfigDirectory, "plugins", pluginName+".lua")
+	fmt.Println(pluginPath)
+	if _, err := os.Stat(pluginPath); err != nil {
+		panic(errors.New("Plugin file doesn't exist"))
+	}
 
-	fmt.Println(luaTable)
+	luaErr := L.DoFile(pluginPath)
 
+	if luaErr != nil {
+		panic(luaErr)
+	}
+
+	// Check if plugin is correct type
 	var pluginConfig *PluginConfig
-
-	err := gluamapper.Map(luaTable, &pluginConfig)
+	err := gluamapper.Map(L.GetGlobal("Config").(*lua.LTable), &pluginConfig)
 
 	if err != nil {
-		fmt.Println(err)
 		panic(err)
 	}
-	fmt.Printf("blah\n %+v\n", pluginConfig)
 
-	return 0
+	if pluginConfig.Type != pluginType {
+		return
+	}
 }
