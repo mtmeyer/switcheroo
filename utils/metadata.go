@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"os"
 	"path"
 )
@@ -21,8 +20,6 @@ func GetMetadataForList(directories []Directory) ([]string, error) {
 	}
 
 	mergedItemMetadata := mergeMetadata(itemMetadata)
-
-	fmt.Printf("%+v\n", mergedItemMetadata)
 
 	return mergedItemMetadata, nil
 }

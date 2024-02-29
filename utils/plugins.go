@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path"
 
@@ -46,14 +45,15 @@ func CallMetadataPlugin(pluginFileName string, data *lua.LTable) lua.LValue {
 }
 
 type PluginConfig struct {
-	Name string
-	Type string
+	Name        string
+	Type        string
+	Description string
 }
 
 func LoadPlugin(pluginFileName string, pluginType string) {
 	// Find and load plugin if exists
 	pluginPath := path.Join(ConfigDirectory, "plugins", pluginFileName)
-	fmt.Println("guava" + pluginPath)
+
 	if _, err := os.Stat(pluginPath); err != nil {
 		panic(errors.New("Plugin file doesn't exist"))
 	}
