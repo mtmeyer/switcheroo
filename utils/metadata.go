@@ -16,6 +16,9 @@ func GetMetadataForList(directories []Directory) ([]string, error) {
 
 	for _, item := range dirs {
 		pluginMetadata := GetMetadataFromPlugin(item.Name(), directories)
+		if pluginMetadata == nil {
+			continue
+		}
 		itemMetadata = append(itemMetadata, pluginMetadata)
 	}
 

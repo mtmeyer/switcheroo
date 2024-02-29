@@ -7,6 +7,7 @@ import (
 
 	"github.com/yuin/gluamapper"
 	"github.com/yuin/gopher-lua"
+	"layeh.com/gopher-luar"
 )
 
 var L *lua.LState
@@ -15,7 +16,13 @@ func GetMetadataFromPlugin(pluginFileName string, data []Directory) []string {
 	L = lua.NewState()
 	defer L.Close()
 
+	L.SetGlobal("require", luar.New(L, LuaImport))
+
 	metadata := CallMetadataPlugin(pluginFileName, MetadataInputToLuaTable(L, data))
+
+	if metadata == nil {
+		return nil
+	}
 
 	var metadataStruct []string
 
@@ -29,7 +36,11 @@ func GetMetadataFromPlugin(pluginFileName string, data []Directory) []string {
 }
 
 func CallMetadataPlugin(pluginFileName string, data *lua.LTable) lua.LValue {
-	LoadPlugin(pluginFileName, "metadata")
+	metadataPlugin := LoadPlugin(pluginFileName, "metadata")
+
+	if !metadataPlugin {
+		return nil
+	}
 
 	if err := L.CallByParam(lua.P{
 		Fn:      L.GetGlobal("GetPluginMetadata"),
@@ -50,7 +61,7 @@ type PluginConfig struct {
 	Description string
 }
 
-func LoadPlugin(pluginFileName string, pluginType string) {
+func LoadPlugin(pluginFileName string, pluginType string) bool {
 	// Find and load plugin if exists
 	pluginPath := path.Join(ConfigDirectory, "plugins", pluginFileName)
 
@@ -73,6 +84,8 @@ func LoadPlugin(pluginFileName string, pluginType string) {
 	}
 
 	if pluginConfig.Type != pluginType {
-		return
+		return false
 	}
+
+	return true
 }
