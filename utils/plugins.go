@@ -12,41 +12,11 @@ import (
 
 var L *lua.LState
 
-func InitLua() error {
+func GetMetadataFromPlugin(pluginFileName string, data []Directory) []string {
 	L = lua.NewState()
 	defer L.Close()
 
-	metadataData := []MetadataPluginData{
-		{
-			Name:            "some-name",
-			Path:            "/some/path",
-			ParentDirectory: "work",
-		},
-		{
-			Name:            "some-other-name",
-			Path:            "/some/other/path",
-			ParentDirectory: "personal",
-		},
-	}
-
-	metadata := GetMetadataFromPlugin("test", metadataData)
-
-	fmt.Println(metadata)
-
-	return nil
-}
-
-type MetadataPluginData struct {
-	Path            string
-	Name            string
-	ParentDirectory string
-}
-
-func GetMetadataFromPlugin(pluginName string, data []MetadataPluginData) []string {
-	L = lua.NewState()
-	defer L.Close()
-
-	metadata := CallMetadataPlugin("test", MetadataInputToLuaTable(L, data))
+	metadata := CallMetadataPlugin(pluginFileName, MetadataInputToLuaTable(L, data))
 
 	var metadataStruct []string
 
@@ -59,8 +29,8 @@ func GetMetadataFromPlugin(pluginName string, data []MetadataPluginData) []strin
 	return metadataStruct
 }
 
-func CallMetadataPlugin(pluginName string, data *lua.LTable) lua.LValue {
-	LoadPlugin(pluginName, "metadata")
+func CallMetadataPlugin(pluginFileName string, data *lua.LTable) lua.LValue {
+	LoadPlugin(pluginFileName, "metadata")
 
 	if err := L.CallByParam(lua.P{
 		Fn:      L.GetGlobal("GetPluginMetadata"),
@@ -80,10 +50,10 @@ type PluginConfig struct {
 	Type string
 }
 
-func LoadPlugin(pluginName string, pluginType string) {
+func LoadPlugin(pluginFileName string, pluginType string) {
 	// Find and load plugin if exists
-	pluginPath := path.Join(ConfigDirectory, "plugins", pluginName+".lua")
-	fmt.Println(pluginPath)
+	pluginPath := path.Join(ConfigDirectory, "plugins", pluginFileName)
+	fmt.Println("guava" + pluginPath)
 	if _, err := os.Stat(pluginPath); err != nil {
 		panic(errors.New("Plugin file doesn't exist"))
 	}

@@ -11,13 +11,17 @@ import (
 func main() {
 	config, err := utils.ParseConfig()
 
-	utils.InitLua()
-
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	directories, err := utils.GetAllDirectoryContents(config.Directories)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	metadata, err := utils.GetMetadataForList(directories)
 
 	if err != nil {
 		log.Fatal(err)
@@ -34,7 +38,7 @@ func main() {
 				return ""
 			}
 
-			return fmt.Sprintf("TODO: metadata")
+			return metadata[i]
 		}),
 	)
 
