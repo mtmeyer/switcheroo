@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 
 	lua "github.com/yuin/gopher-lua"
@@ -65,6 +66,7 @@ func importLuaUtils() *lua.LTable {
 	L.SetField(pkg, "ReadDir", L.NewFunction(LuaReadDir))
 	L.SetField(pkg, "Exists", L.NewFunction(LuaExists))
 	L.SetField(pkg, "PathJoin", L.NewFunction(LuaPathJoin))
+	L.SetField(pkg, "ExecCmd", L.NewFunction(LuaExecCmd))
 
 	return pkg
 }
@@ -138,5 +140,31 @@ func LuaPathJoin(L *lua.LState) int {
 
 	L.Push(lua.LString(path.Join(args...)))
 
+	return 1
+}
+
+func LuaExecCmd(L *lua.LState) int {
+	name := L.ToString(1)
+	var args []string
+	currentIndex := 1
+
+	for len(L.ToString(currentIndex)) > 0 {
+		if currentIndex == 1 {
+			currentIndex += 1
+			continue
+		}
+		args = append(args, L.ToString(currentIndex))
+		currentIndex += 1
+	}
+
+	cmd := exec.Command(name, args...)
+
+	cmdOutput, err := cmd.Output()
+
+	if err != nil {
+		panic(err)
+	}
+
+	L.Push(lua.LString(cmdOutput))
 	return 1
 }

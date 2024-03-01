@@ -48,5 +48,5 @@ func main() {
 
 	output := utils.DetermineOutput(config, selectedIndex, directories)
 
-	fmt.Printf("%s", output)
+	fmt.Println(output)
 }
