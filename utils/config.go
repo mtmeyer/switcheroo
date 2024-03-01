@@ -32,11 +32,17 @@ func GetConfigFileDirectory() (string, error) {
 	return "", errors.New("No config directory found")
 }
 
-func ParseConfig() (*Config, error) {
+func ParseConfig(configFile string) (*Config, error) {
 	var configFileErr error
 	ConfigDirectory, configFileErr = GetConfigFileDirectory()
 
-	configPath := path.Join(ConfigDirectory, "/config.json")
+	var configPath string
+
+	if len(configFile) > 0 {
+		configPath = configFile
+	} else {
+		configPath = path.Join(ConfigDirectory, "/config.json")
+	}
 
 	if configFileErr != nil {
 		return nil, configFileErr

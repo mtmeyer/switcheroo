@@ -5,7 +5,11 @@ import (
 	"path"
 )
 
-func GetMetadataForList(directories []Directory) ([]string, error) {
+func GetMetadataForList(directories []Directory, skipPlugins bool) ([]string, error) {
+	if skipPlugins {
+		return []string{}, nil
+	}
+
 	dirs, err := os.ReadDir(path.Join(ConfigDirectory, "plugins"))
 
 	if err != nil {

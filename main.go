@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"switcheroo/utils"
@@ -9,7 +10,23 @@ import (
 )
 
 func main() {
-	config, err := utils.ParseConfig()
+	var directory string
+	var configFile string
+	var skipPlugins bool
+
+	flag.StringVar(&directory, "directory", "", "Override directory from config")
+	flag.StringVar(&configFile, "configFile", "", "Path to custom config file")
+	flag.BoolVar(&skipPlugins, "skipPlugins", false, "If plugins should be skipped")
+
+	flag.Parse()
+
+	config, err := utils.ParseConfig(configFile)
+
+	if len(directory) > 0 {
+		config.Directories = map[string]string{
+			"custom": directory,
+		}
+	}
 
 	if err != nil {
 		log.Fatal(err)
@@ -21,7 +38,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	metadata, err := utils.GetMetadataForList(directories)
+	metadata, err := utils.GetMetadataForList(directories, skipPlugins)
 
 	if err != nil {
 		log.Fatal(err)
@@ -38,7 +55,11 @@ func main() {
 				return ""
 			}
 
-			return metadata[i]
+			if len(metadata) == 0 {
+				return ""
+			} else {
+				return metadata[i]
+			}
 		}),
 	)
 
