@@ -40,3 +40,5 @@ what worktrees are currently cloned
 `--configFile`: Path to a config file not in the default directory
 
 `--skipPlugins`: Run Switcheroo without running any plugins
+
+`--output`: What type of output to return. Either 'path', 'index' or 'name' 

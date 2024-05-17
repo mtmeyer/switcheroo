@@ -13,10 +13,12 @@ func main() {
 	var directory string
 	var configFile string
 	var skipPlugins bool
+	var outputType string
 
 	flag.StringVar(&directory, "directory", "", "Override directory from config")
 	flag.StringVar(&configFile, "configFile", "", "Path to custom config file")
 	flag.BoolVar(&skipPlugins, "skipPlugins", false, "If plugins should be skipped")
+	flag.StringVar(&outputType, "output", "", "What type of output to return")
 
 	flag.Parse()
 
@@ -26,6 +28,10 @@ func main() {
 		config.Directories = map[string]string{
 			"custom": directory,
 		}
+	}
+
+	if len(outputType) > 0 {
+		config.Output = outputType
 	}
 
 	if err != nil {
