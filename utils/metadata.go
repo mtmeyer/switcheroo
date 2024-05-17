@@ -3,6 +3,7 @@ package utils
 import (
 	"os"
 	"path"
+	"path/filepath"
 )
 
 func GetMetadataForList(directories []Directory, skipPlugins bool) ([]string, error) {
@@ -19,6 +20,10 @@ func GetMetadataForList(directories []Directory, skipPlugins bool) ([]string, er
 	itemMetadata := [][]string{}
 
 	for _, item := range dirs {
+		if filepath.Ext(item.Name()) != ".lua" {
+			continue
+		}
+
 		pluginMetadata := GetMetadataFromPlugin(item.Name(), directories)
 		if pluginMetadata == nil {
 			continue
