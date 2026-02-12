@@ -236,7 +236,15 @@ func (m RepoSelectModel) View() string {
 	sections = append(sections, help)
 
 	// Join all sections
-	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
+	innerContent := lipgloss.JoinVertical(lipgloss.Left, sections...)
+
+	// Wrap everything in a container box with border
+	containerStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(m.theme.BorderColor).
+		Padding(1, 2)
+
+	content := containerStyle.Render(innerContent)
 
 	// Center the entire UI
 	return m.centerContent(content)
@@ -249,53 +257,60 @@ func (m *RepoSelectModel) renderHeader() string {
 
 // renderSearchInput renders the search input field
 func (m *RepoSelectModel) renderSearchInput(width int) string {
-	prompt := m.theme.InputPromptStyle.Render("> ")
-	query := m.theme.InputStyle.Render(m.searchQuery)
-	cursor := m.theme.InputStyle.Render("█") // Block cursor
+	icon := m.theme.Icons.Search
+	prompt := m.theme.InputPromptStyle.Render(icon + " ")
 
-	// Build input line
-	inputLine := prompt + query + cursor
+	// Input content
+	queryText := m.searchQuery
+	if queryText == "" {
+		queryText = "Search repositories..."
+	}
 
-	// Calculate exact width to match list + gap + preview panes
-	// Each pane has: width + 2 (border) + 2 (padding) = width + 4
-	leftPaneTotal := listPaneWidth + 4
-	rightPaneTotal := previewPaneWidth + 4
-	totalPaneWidth := leftPaneTotal + gap + rightPaneTotal
+	cursor := "█" // Block cursor
+	inputContent := queryText + cursor
 
-	// Subtract border and padding from input to match total rendered width
-	inputContentWidth := totalPaneWidth - 4
+	// Calculate total width to match panes below
+	totalPaneWidth := listPaneWidth + gap + previewPaneWidth
 
-	// Add border
+	// Create input with background, left border, and more vertical padding
 	inputStyle := lipgloss.NewStyle().
-		Width(inputContentWidth).
-		BorderStyle(lipgloss.RoundedBorder()).
+		Width(totalPaneWidth).
+		Background(m.theme.InputBgColor).
+		Foreground(m.theme.ForegroundColor).
+		Padding(1, 2). // Increased vertical padding from 0 to 1
+		BorderLeft(true).
+		BorderStyle(lipgloss.ThickBorder()).
 		BorderForeground(m.theme.BorderColor).
-		Padding(0, 1)
+		MarginBottom(1)
 
-	return inputStyle.Render(inputLine)
+	return inputStyle.Render(prompt + inputContent)
 }
 
 // renderMainContent renders the list and preview panes
 func (m *RepoSelectModel) renderMainContent(width, height int) string {
 	availableHeight := height - inputHeight - padding
 
-	// Render left pane (list)
+	// Render left pane (list) with background
 	leftPane := m.renderRepoList(availableHeight)
 	leftStyle := lipgloss.NewStyle().
 		Width(listPaneWidth).
 		Height(availableHeight).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(m.theme.BorderColor).
-		Padding(0, 1)
+		Background(m.theme.ListBgColor).
+		Padding(1, 2).
+		BorderLeft(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(m.theme.BorderColor)
 
-	// Render right pane (preview)
+	// Render right pane (preview) with different background for depth
 	rightPane := m.renderPreview(availableHeight)
 	rightStyle := lipgloss.NewStyle().
 		Width(previewPaneWidth).
 		Height(availableHeight).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(m.theme.BorderColor).
-		Padding(0, 1)
+		Background(m.theme.PreviewBgColor).
+		Padding(1, 2).
+		BorderLeft(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(m.theme.BorderColor)
 
 	// Join horizontally
 	return lipgloss.JoinHorizontal(
@@ -322,22 +337,34 @@ func (m *RepoSelectModel) renderRepoList(height int) string {
 	// Render visible items
 	for i := start; i < end; i++ {
 		repo := m.filteredRepos[i]
-		cursor := "  "
-		style := m.theme.ItemStyle
 
-		if i == m.cursor {
-			cursor = "> "
-			style = m.theme.SelectedStyle
+		// Icon based on repo type
+		var icon string
+		if len(repo.worktrees) > 0 {
+			icon = m.theme.Icons.Worktree
+		} else {
+			icon = m.theme.Icons.Git
 		}
 
-		line := cursor + style.Render(repo.name)
+		var line string
+		if i == m.cursor {
+			// Selected item with background
+			cursor := m.theme.Icons.ChevronRight
+			content := cursor + " " + icon + " " + repo.name
+			line = m.theme.SelectedStyle.Render(content)
+		} else {
+			// Normal item
+			content := "  " + icon + " " + repo.name
+			line = m.theme.ItemStyle.Render(content)
+		}
+
 		lines = append(lines, line)
 	}
 
 	// Add scroll indicator if needed
 	if len(m.filteredRepos) > visibleHeight {
 		total := len(m.filteredRepos)
-		showing := fmt.Sprintf("(%d/%d)", end, total)
+		showing := fmt.Sprintf("  (%d/%d)", end, total)
 		lines = append(lines, "")
 		lines = append(lines, m.theme.HelpStyle.Render(showing))
 	}
@@ -358,24 +385,31 @@ func (m *RepoSelectModel) renderPreview(height int) string {
 	repo := m.filteredRepos[m.cursor]
 	var lines []string
 
-	// Name
-	lines = append(lines, m.theme.LabelStyle.Render("Name: ")+m.theme.ValueStyle.Render(repo.name))
+	// Name with folder icon
+	nameLabel := m.theme.LabelStyle.Render(m.theme.Icons.Folder + " ")
+	lines = append(lines, nameLabel+m.theme.ValueStyle.Render(repo.name))
 
 	// Path
-	lines = append(lines, m.theme.LabelStyle.Render("Path: ")+m.theme.ValueStyle.Render(repo.path))
+	pathStyle := lipgloss.NewStyle().Foreground(m.theme.MutedColor)
+	lines = append(lines, pathStyle.Render("  "+repo.path))
 	lines = append(lines, "")
 
 	// Show EITHER worktrees OR branches, not both
 	if len(repo.worktrees) > 0 {
 		// Worktrees section (only if repo has worktrees)
-		lines = append(lines, m.theme.LabelStyle.Render("Worktrees:"))
+		worktreeIcon := m.theme.Icons.Worktree
+		lines = append(lines, m.theme.LabelStyle.Render(worktreeIcon+" Worktrees"))
+		lines = append(lines, "")
 		for _, worktree := range repo.worktrees {
-			lines = append(lines, "  "+worktree)
+			line := "  " + m.theme.Icons.ChevronRight + " " + worktree
+			lines = append(lines, m.theme.ValueStyle.Render(line))
 		}
 		lines = append(lines, "")
 	} else {
 		// Branches section (only if repo has no worktrees)
-		lines = append(lines, m.theme.LabelStyle.Render("Branches:"))
+		branchIcon := m.theme.Icons.Branch
+		lines = append(lines, m.theme.LabelStyle.Render(branchIcon+" Branches"))
+		lines = append(lines, "")
 
 		// Sort branches alphabetically
 		sortedBranches := make([]string, len(repo.branches))
@@ -384,24 +418,28 @@ func (m *RepoSelectModel) renderPreview(height int) string {
 
 		for _, branch := range sortedBranches {
 			if branch == repo.currentBranch {
-				// Highlight current branch with * and different color
-				line := m.theme.SelectedStyle.Render("* " + branch)
-				lines = append(lines, line)
+				// Highlight current branch with check icon
+				line := "  " + m.theme.Icons.Check + " " + branch
+				lines = append(lines, m.theme.SelectedStyle.Render(line))
 			} else {
-				lines = append(lines, "  "+branch)
+				line := "  " + m.theme.Icons.ChevronRight + " " + branch
+				lines = append(lines, m.theme.ValueStyle.Render(line))
 			}
 		}
 		lines = append(lines, "")
 	}
 
-	// Status
-	statusLabel := m.theme.LabelStyle.Render("Status: ")
+	// Status with icon
+	var statusIcon string
 	var statusStyle lipgloss.Style
 	if strings.Contains(repo.status, "Modified") {
+		statusIcon = m.theme.Icons.Modified
 		statusStyle = lipgloss.NewStyle().Foreground(m.theme.WarningColor)
 	} else {
+		statusIcon = m.theme.Icons.Check
 		statusStyle = lipgloss.NewStyle().Foreground(m.theme.SuccessColor)
 	}
+	statusLabel := m.theme.LabelStyle.Render(statusIcon + " ")
 	lines = append(lines, statusLabel+statusStyle.Render(repo.status))
 
 	return strings.Join(lines, "\n")
