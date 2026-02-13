@@ -16,7 +16,9 @@ Create a `config.json` file in the Switcheroo config directory with the followin
     "personal": "/Users/SomeUser/git/personal",
     "work": "/Users/SomeUser/git/work"
   },
-  "output": "path"
+  "output": {
+    "type": "path"
+  }
 }
 ```
 
@@ -50,6 +52,25 @@ what worktrees are currently cloned
 - Press `enter` to pick a worktree, or `esc` to go back to the repository list.
 - For repos without worktrees, selecting the repo immediately outputs the configured path/command result.
 
+## Output Modes
+
+- **Path (default):** prints the selected path.
+
+  ```json
+  "output": {
+    "type": "path"
+  }
+  ```
+
+- **Command:** runs the configured `value` after replacing `{{path}}` with the selected path.
+
+  ```json
+  "output": {
+    "type": "command",
+    "value": "echo {{path}}"
+  }
+  ```
+
 ## Themes
 
 Switcheroo can load color themes from JSON files. Set the optional `theme` key in
@@ -58,7 +79,9 @@ Switcheroo can load color themes from JSON files. Set the optional `theme` key i
 ```json
 {
   "directory": "/path/to/repos",
-  "output": "path",
+  "output": {
+    "type": "path"
+  },
   "theme": "dracula"
 }
 ```

@@ -71,8 +71,10 @@ switcheroo/
 ```json
 {
   "directory": "/Users/username/repos",
-  "command": "zellij attach -c {{path}}",
-  "output": "path",
+  "output": {
+    "type": "command",
+    "value": "zellij attach -c {{path}}"
+  },
   "preview": {
     "enabled": true,
     "repo_fields": [
@@ -106,8 +108,9 @@ switcheroo/
 #### Root Level
 
 - `directory` (string, required): Absolute path to directory containing all repositories
-- `command` (string, optional): Command template to execute on selection (supports `{{path}}` variable)
-- `output` (string, default: "path"): Output mode - either "path" or "command"
+- `output` (object, default: `{ "type": "path" }`): Controls what happens after selection
+  - `type` (string): `"path"` prints the selected path; `"command"` executes `value`
+  - `value` (string, required when type is `"command"`): Command template supporting `{{path}}`
 - `preview` (object): Preview pane configuration
 
 #### Preview Configuration
@@ -123,7 +126,9 @@ If no config file exists, defaults are:
 ```json
 {
   "directory": "",
-  "output": "path",
+  "output": {
+    "type": "path"
+  },
   "preview": {
     "enabled": true,
     "repo_fields": ["name", "branches", "status", "last_commit"],
@@ -476,7 +481,7 @@ Git commands may fail in various scenarios:
 
 ## Output Modes
 
-### Path Mode (`output: "path"`)
+### Path Mode (`output.type = "path"`)
 
 Prints the selected path to stdout and exits.
 
@@ -489,7 +494,7 @@ $ switcheroo
 $ cd $(switcheroo)  # Common usage pattern
 ```
 
-### Command Mode (`output: "command"`)
+### Command Mode (`output.type = "command"`)
 
 Executes the configured command with path variable substitution.
 
@@ -499,8 +504,10 @@ Executes the configured command with path variable substitution.
 **Example configuration:**
 ```json
 {
-  "command": "zellij attach -c {{path}}",
-  "output": "command"
+  "output": {
+    "type": "command",
+    "value": "zellij attach -c {{path}}"
+  }
 }
 ```
 
@@ -512,20 +519,7 @@ $ switcheroo
 ```
 
 **Implementation:**
-```go
-func executeCommand(config *config.Config, path string) error {
-    cmd := strings.ReplaceAll(config.Command, "{{path}}", path)
-    
-    // Execute command in user's shell
-    parts := strings.Fields(cmd)
-    execCmd := exec.Command(parts[0], parts[1:]...)
-    execCmd.Stdin = os.Stdin
-    execCmd.Stdout = os.Stdout
-    execCmd.Stderr = os.Stderr
-    
-    return execCmd.Run()
-}
-```
+See `cmd/switcheroo/main.go` for the current implementation, which replaces `{{path}}` in `output.value`, splits it into args, and executes it via `exec.Command`.
 
 ## Future Plugin System
 

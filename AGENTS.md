@@ -129,8 +129,10 @@ Icons.ChevronRight = "\uf054" // nf-fa-chevron_right
 ```json
 {
   "directory": "/path/to/repos",     // Required
-  "command": "zellij attach -c {{path}}", // Optional
-  "output": "path",                   // Optional, default: "path"
+  "output": {                         // Optional, default type: "path"
+    "type": "command",              // "path" prints, "command" executes
+    "value": "zellij attach -c {{path}}" // Required when type == "command"
+  },
   "preview": {
     "enabled": true,                  // Optional, default: true
     "repo_fields": ["name", "branches", "status"],

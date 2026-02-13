@@ -5,15 +5,21 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Config represents the application configuration
 type Config struct {
 	Directory string        `json:"directory"`
-	Command   string        `json:"command,omitempty"`
-	Output    string        `json:"output"`
 	Preview   PreviewConfig `json:"preview"`
+	Output    OutputConfig  `json:"output"`
 	Theme     string        `json:"theme,omitempty"`
+}
+
+// OutputConfig controls what happens after selecting a repo/worktree
+type OutputConfig struct {
+	Type  string `json:"type"`
+	Value string `json:"value,omitempty"`
 }
 
 // PreviewConfig represents preview pane configuration
@@ -76,6 +82,9 @@ func loadFromFile(path string) (*Config, error) {
 
 	// Apply defaults for missing values
 	applyDefaults(&config)
+	if err := validateConfig(&config); err != nil {
+		return nil, err
+	}
 
 	// Validate required fields
 	if config.Directory == "" {
@@ -89,11 +98,13 @@ func loadFromFile(path string) (*Config, error) {
 func defaultConfig() *Config {
 	config := &Config{
 		Directory: "",
-		Output:    "path",
 		Preview: PreviewConfig{
 			Enabled:        true,
 			RepoFields:     []string{"name", "branches", "status", "last_commit"},
 			WorktreeFields: []string{"branch", "status", "last_commit", "ahead_behind"},
+		},
+		Output: OutputConfig{
+			Type: "path",
 		},
 	}
 	return config
@@ -101,8 +112,8 @@ func defaultConfig() *Config {
 
 // applyDefaults fills in default values for missing config fields
 func applyDefaults(config *Config) {
-	if config.Output == "" {
-		config.Output = "path"
+	if config.Output.Type == "" {
+		config.Output.Type = "path"
 	}
 
 	// Preview defaults
@@ -112,5 +123,21 @@ func applyDefaults(config *Config) {
 
 	if len(config.Preview.WorktreeFields) == 0 {
 		config.Preview.WorktreeFields = []string{"branch", "status", "last_commit", "ahead_behind"}
+	}
+
+	// no validation here to avoid panics; handled separately
+}
+
+func validateConfig(config *Config) error {
+	switch config.Output.Type {
+	case "path":
+		return nil
+	case "command":
+		if strings.TrimSpace(config.Output.Value) == "" {
+			return errors.New("output.value is required when output.type is 'command'")
+		}
+		return nil
+	default:
+		return errors.New("unsupported output.type: " + config.Output.Type)
 	}
 }
