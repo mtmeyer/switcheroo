@@ -8,18 +8,22 @@ import (
 )
 
 const (
-	// UI dimensions
-	maxContainerWidth = 100 // Max width for the outer container
-
-	// Pane dimensions (content width, not including padding/borders)
-	listWidth    = 35
-	previewWidth = 50
-	gap          = 2
-
-	// Padding
-	containerPadding = 2
-	paneHeight       = 20
+	maxContainerWidth = 100
+	baseListWidth     = 35
+	basePreviewWidth  = 50
+	gapWidth          = 2
+	paneBorderWidth   = 1
+	containerPadding  = 2
+	containerBorder   = 2 // rounded border width (left + right)
+	paneHeight        = 20
 )
+
+type layoutMetrics struct {
+	containerWidth int
+	contentWidth   int
+	listWidth      int
+	previewWidth   int
+}
 
 // RepoSelectModel handles repository selection
 type RepoSelectModel struct {
@@ -110,10 +114,13 @@ func (m *RepoSelectModel) filterRepos() {
 
 // View renders the repo selection view
 func (m RepoSelectModel) View() string {
+	layout := m.calculateLayout()
+	hasSize := m.width > 0 && m.height > 0
+
 	// Build components
 	title := m.renderTitle()
-	search := m.renderSearch()
-	content := m.renderContent()
+	search := m.renderSearch(layout, hasSize)
+	content := m.renderContent(layout)
 	help := m.renderHelp()
 
 	// Combine all sections
@@ -126,6 +133,10 @@ func (m RepoSelectModel) View() string {
 		BorderForeground(m.theme.BorderColor).
 		Padding(1, containerPadding)
 
+	if hasSize {
+		containerStyle = containerStyle.Width(layout.containerWidth)
+	}
+
 	// Only set background if theme defines one
 	if m.theme.BackgroundColor != lipgloss.Color("") {
 		containerStyle = containerStyle.Background(m.theme.BackgroundColor)
@@ -133,7 +144,10 @@ func (m RepoSelectModel) View() string {
 
 	contentBox := containerStyle.Render(inner)
 
-	// Center in terminal
+	if !hasSize {
+		return contentBox
+	}
+
 	return lipgloss.Place(
 		m.width,
 		m.height,
@@ -149,7 +163,7 @@ func (m *RepoSelectModel) renderTitle() string {
 }
 
 // renderSearch renders the search input
-func (m *RepoSelectModel) renderSearch() string {
+func (m *RepoSelectModel) renderSearch(layout layoutMetrics, hasSize bool) string {
 	icon := m.theme.Icons.Search
 	prompt := m.theme.InputPromptStyle.Render(icon + " ")
 
@@ -167,6 +181,10 @@ func (m *RepoSelectModel) renderSearch() string {
 		BorderStyle(lipgloss.ThickBorder()).
 		BorderForeground(m.theme.BorderColor)
 
+	if hasSize && layout.contentWidth > 0 {
+		inputStyle = inputStyle.Width(layout.contentWidth)
+	}
+
 	// Only set background if theme defines one
 	if m.theme.InputBgColor != lipgloss.Color("") {
 		inputStyle = inputStyle.Background(m.theme.InputBgColor)
@@ -176,11 +194,20 @@ func (m *RepoSelectModel) renderSearch() string {
 }
 
 // renderContent renders the list and preview side by side
-func (m *RepoSelectModel) renderContent() string {
+func (m *RepoSelectModel) renderContent(layout layoutMetrics) string {
+	listPaneWidth := layout.listWidth
+	previewPaneWidth := layout.previewWidth
+
+	if listPaneWidth < 1 {
+		listPaneWidth = 1
+	}
+	if previewPaneWidth < 1 {
+		previewPaneWidth = 1
+	}
 	// Render left pane (list)
 	leftContent := m.renderList()
 	leftStyle := lipgloss.NewStyle().
-		Width(listWidth).
+		Width(listPaneWidth).
 		Height(paneHeight).
 		Padding(1, 2).
 		BorderLeft(true).
@@ -196,7 +223,7 @@ func (m *RepoSelectModel) renderContent() string {
 	// Render right pane (preview)
 	rightContent := m.renderPreview()
 	rightStyle := lipgloss.NewStyle().
-		Width(previewWidth).
+		Width(previewPaneWidth).
 		Height(paneHeight).
 		Padding(1, 2).
 		BorderLeft(true).
@@ -210,7 +237,7 @@ func (m *RepoSelectModel) renderContent() string {
 	rightPane := rightStyle.Render(rightContent)
 
 	// Join horizontally
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, strings.Repeat(" ", gap), rightPane)
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, strings.Repeat(" ", gapWidth), rightPane)
 }
 
 // renderList renders the repository list
@@ -300,4 +327,52 @@ func (m *RepoSelectModel) renderPreview() string {
 func (m *RepoSelectModel) renderHelp() string {
 	helpText := "↑/k up • ↓/j down • enter select • q/ctrl+c quit"
 	return m.theme.HelpStyle.Render(helpText)
+}
+
+func (m RepoSelectModel) calculateLayout() layoutMetrics {
+	termWidth := m.width
+	if termWidth <= 0 {
+		naturalContent := baseListWidth + basePreviewWidth + gapWidth + paneBorderWidth*2
+		return layoutMetrics{
+			containerWidth: naturalContent + containerPadding*2 + containerBorder,
+			contentWidth:   naturalContent,
+			listWidth:      baseListWidth,
+			previewWidth:   basePreviewWidth,
+		}
+	}
+
+	containerWidth := termWidth
+	if containerWidth > maxContainerWidth {
+		containerWidth = maxContainerWidth
+	}
+
+	innerWidth := containerWidth - (containerPadding*2 + containerBorder)
+	if innerWidth < 4 {
+		innerWidth = 4
+	}
+
+	usable := innerWidth - gapWidth - paneBorderWidth*2
+	if usable < 2 {
+		usable = 2
+	}
+
+	totalBase := baseListWidth + basePreviewWidth
+	listWidth := usable * baseListWidth / totalBase
+	previewWidth := usable - listWidth
+
+	if listWidth < 1 {
+		listWidth = 1
+	}
+	if previewWidth < 1 {
+		previewWidth = 1
+	}
+
+	contentWidth := innerWidth
+
+	return layoutMetrics{
+		containerWidth: containerWidth,
+		contentWidth:   contentWidth,
+		listWidth:      listWidth,
+		previewWidth:   previewWidth,
+	}
 }

@@ -13,6 +13,7 @@ type Config struct {
 	Command   string        `json:"command,omitempty"`
 	Output    string        `json:"output"`
 	Preview   PreviewConfig `json:"preview"`
+	Theme     string        `json:"theme,omitempty"`
 }
 
 // PreviewConfig represents preview pane configuration

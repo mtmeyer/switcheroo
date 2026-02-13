@@ -42,3 +42,52 @@ what worktrees are currently cloned
 `--skipPlugins`: Run Switcheroo without running any plugins
 
 `--output`: What type of output to return. Either 'path', 'index' or 'name' 
+
+## Themes
+
+Switcheroo can load color themes from JSON files. Set the optional `theme` key in
+`config.json` to the name (or path) of the theme you want:
+
+```json
+{
+  "directory": "/path/to/repos",
+  "output": "path",
+  "theme": "dracula"
+}
+```
+
+If `theme` is omitted or set to `"default"`, Switcheroo uses your terminal's
+colors. When a theme name is provided, Switcheroo searches for a matching
+`<name>.json` file in:
+
+1. `./themes/`
+2. `<switcheroo binary>/themes/`
+3. `$XDG_CONFIG_HOME/switcheroo/themes/`
+4. `~/.config/switcheroo/themes/`
+5. `~/.switcheroo/themes/`
+
+You can also provide an absolute/relative path (with or without `.json`). A
+theme file lists color values for the UI; any fields you leave empty fall back
+to the terminal defaults.
+
+Example (`themes/dracula.json`):
+
+```json
+{
+  "name": "Dracula",
+  "accent": "#bd93f9",
+  "muted": "#6272a4",
+  "disabled": "#44475a",
+  "success": "#50fa7b",
+  "warning": "#ffb86c",
+  "error": "#ff5555",
+  "background": "#282a36",
+  "foreground": "#f8f8f2",
+  "border": "#6272a4",
+  "current_line": "#8be9fd",
+  "input_bg": "#1e1f29",
+  "list_bg": "#21222c",
+  "preview_bg": "#1d1e27",
+  "selected_bg": "#44475a"
+}
+```

@@ -22,11 +22,11 @@ type Model struct {
 	err                 error
 }
 
-// NewModel creates a new root model with mock data
-func NewModel() Model {
+// NewModel creates a new root model using discovered repositories and theme
+func NewModel(repos []RepoDisplay, theme Theme) Model {
 	return Model{
 		state:           StateRepoSelect,
-		repoSelectModel: NewRepoSelectModel(),
+		repoSelectModel: NewRepoSelectModel(repos, theme),
 	}
 }
 
