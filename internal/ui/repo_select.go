@@ -7,24 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const (
-	maxContainerWidth = 100
-	baseListWidth     = 35
-	basePreviewWidth  = 50
-	gapWidth          = 2
-	paneBorderWidth   = 1
-	containerPadding  = 2
-	containerBorder   = 2 // rounded border width (left + right)
-	paneHeight        = 20
-)
-
-type layoutMetrics struct {
-	containerWidth int
-	contentWidth   int
-	listWidth      int
-	previewWidth   int
-}
-
 // RepoSelectModel handles repository selection
 type RepoSelectModel struct {
 	repos         []RepoDisplay
@@ -32,7 +14,6 @@ type RepoSelectModel struct {
 	cursor        int
 	scrollOffset  int
 	searchQuery   string
-	selected      bool
 	theme         Theme
 	width         int
 	height        int
@@ -76,8 +57,8 @@ func (m RepoSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if len(m.filteredRepos) > 0 {
-				m.selected = true
-				return m, tea.Quit
+				selected := m.filteredRepos[m.cursor]
+				return m, repoSelectedCmd(selected)
 			}
 		case "backspace":
 			if len(m.searchQuery) > 0 {
@@ -114,7 +95,7 @@ func (m *RepoSelectModel) filterRepos() {
 
 // View renders the repo selection view
 func (m RepoSelectModel) View() string {
-	layout := m.calculateLayout()
+	layout := calculateLayout(m.width)
 	hasSize := m.width > 0 && m.height > 0
 
 	// Build components
@@ -301,7 +282,7 @@ func (m *RepoSelectModel) renderPreview() string {
 		lines = append(lines, "")
 
 		for _, worktree := range repo.Worktrees {
-			line := "  " + m.theme.Icons.ChevronRight + " " + worktree
+			line := "  " + m.theme.Icons.ChevronRight + " " + worktree.Name
 			lines = append(lines, m.theme.ValueStyle.Render(line))
 		}
 	} else {
@@ -327,52 +308,4 @@ func (m *RepoSelectModel) renderPreview() string {
 func (m *RepoSelectModel) renderHelp() string {
 	helpText := "↑/k up • ↓/j down • enter select • q/ctrl+c quit"
 	return m.theme.HelpStyle.Render(helpText)
-}
-
-func (m RepoSelectModel) calculateLayout() layoutMetrics {
-	termWidth := m.width
-	if termWidth <= 0 {
-		naturalContent := baseListWidth + basePreviewWidth + gapWidth + paneBorderWidth*2
-		return layoutMetrics{
-			containerWidth: naturalContent + containerPadding*2 + containerBorder,
-			contentWidth:   naturalContent,
-			listWidth:      baseListWidth,
-			previewWidth:   basePreviewWidth,
-		}
-	}
-
-	containerWidth := termWidth
-	if containerWidth > maxContainerWidth {
-		containerWidth = maxContainerWidth
-	}
-
-	innerWidth := containerWidth - (containerPadding*2 + containerBorder)
-	if innerWidth < 4 {
-		innerWidth = 4
-	}
-
-	usable := innerWidth - gapWidth - paneBorderWidth*2
-	if usable < 2 {
-		usable = 2
-	}
-
-	totalBase := baseListWidth + basePreviewWidth
-	listWidth := usable * baseListWidth / totalBase
-	previewWidth := usable - listWidth
-
-	if listWidth < 1 {
-		listWidth = 1
-	}
-	if previewWidth < 1 {
-		previewWidth = 1
-	}
-
-	contentWidth := innerWidth
-
-	return layoutMetrics{
-		containerWidth: containerWidth,
-		contentWidth:   contentWidth,
-		listWidth:      listWidth,
-		previewWidth:   previewWidth,
-	}
 }

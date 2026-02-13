@@ -9,10 +9,18 @@ import (
 type RepoDisplay struct {
 	Name          string
 	Path          string
-	Worktrees     []string // Worktree names
+	Worktrees     []WorktreeDisplay
 	Branches      []string // Branch names
 	CurrentBranch string
 	HasWorktrees  bool
+}
+
+// WorktreeDisplay represents worktree data needed by the UI
+type WorktreeDisplay struct {
+	Name   string
+	Path   string
+	Branch string
+	Locked bool
 }
 
 // FromGitRepositories converts git.Repository slice to RepoDisplay slice
@@ -27,12 +35,16 @@ func FromGitRepositories(repos []git.Repository) []RepoDisplay {
 		}
 
 		if repo.HasWorktrees {
-			// Extract worktree names
-			worktreeNames := make([]string, len(repo.Worktrees))
+			worktrees := make([]WorktreeDisplay, len(repo.Worktrees))
 			for j, wt := range repo.Worktrees {
-				worktreeNames[j] = wt.Name
+				worktrees[j] = WorktreeDisplay{
+					Name:   wt.Name,
+					Path:   wt.Path,
+					Branch: wt.Branch,
+					Locked: wt.IsLocked,
+				}
 			}
-			displays[i].Worktrees = worktreeNames
+			displays[i].Worktrees = worktrees
 		} else {
 			// Extract branch names and sort them
 			branchNames := make([]string, len(repo.Branches))

@@ -43,6 +43,13 @@ what worktrees are currently cloned
 
 `--output`: What type of output to return. Either 'path', 'index' or 'name' 
 
+## Usage
+
+- Launch `switcheroo` to see the repository list. Use the search bar (`Search repositories...`) to filter; `enter` selects a repo.
+- If the repo has additional Git worktrees, a second screen appears listing them. This screen has its own search bar (`Search worktrees...`).
+- Press `enter` to pick a worktree, or `esc` to go back to the repository list.
+- For repos without worktrees, selecting the repo immediately outputs the configured path/command result.
+
 ## Themes
 
 Switcheroo can load color themes from JSON files. Set the optional `theme` key in
