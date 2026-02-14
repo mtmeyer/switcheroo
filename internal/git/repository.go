@@ -7,7 +7,27 @@ import (
 	"strings"
 )
 
-// Repository represents a Git repository
+type Branch struct {
+	Name        string
+	IsCurrent   bool
+	Upstream    string
+	Status      string
+	DiffAdded   int
+	DiffRemoved int
+}
+
+type Worktree struct {
+	Name        string
+	Path        string
+	Branch      string
+	IsLocked    bool
+	IsBare      bool
+	CommitHash  string
+	Status      string
+	DiffAdded   int
+	DiffRemoved int
+}
+
 type Repository struct {
 	Name          string
 	Path          string
@@ -19,7 +39,6 @@ type Repository struct {
 	DefaultBranch string
 }
 
-// DiscoverRepositories scans a directory for git repositories
 func DiscoverRepositories(directory string) ([]Repository, error) {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
