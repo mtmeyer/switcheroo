@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-// IsGitRepository checks if a directory is a git repository
 func IsGitRepository(path string) bool {
 	cmd := exec.Command("git", "-C", path, "rev-parse", "--git-dir")
 	err := cmd.Run()
@@ -27,8 +26,6 @@ func GetWorktrees(repoPath string) ([]Worktree, error) {
 
 	worktrees := parseWorktreeList(string(output))
 
-	// Filter out the main worktree (the repository itself)
-	// Only return additional worktrees
 	var additionalWorktrees []Worktree
 	for i := range worktrees {
 		wt := &worktrees[i]
@@ -42,7 +39,6 @@ func GetWorktrees(repoPath string) ([]Worktree, error) {
 	return additionalWorktrees, nil
 }
 
-// parseWorktreeList parses the output of `git worktree list --porcelain`
 func parseWorktreeList(output string) []Worktree {
 	var worktrees []Worktree
 	var current *Worktree
@@ -75,7 +71,6 @@ func parseWorktreeList(output string) []Worktree {
 		}
 	}
 
-	// Don't forget the last one
 	if current != nil {
 		worktrees = append(worktrees, *current)
 	}
@@ -83,7 +78,6 @@ func parseWorktreeList(output string) []Worktree {
 	return worktrees
 }
 
-// GetBranches returns all local branches for a repository
 func GetBranches(repoPath string) ([]Branch, error) {
 	format := "%(refname:short)|%(HEAD)|%(upstream:short)|%(upstream:track)"
 	cmd := exec.Command("git", "-C", repoPath, "branch", "--format="+format)

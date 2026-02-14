@@ -161,12 +161,10 @@ func (m RepoSelectModel) View() string {
 	)
 }
 
-// renderTitle renders the header
 func (m *RepoSelectModel) renderTitle() string {
 	return m.theme.TitleStyle.Render("Select Repository")
 }
 
-// renderSearch renders the search input
 func (m *RepoSelectModel) renderSearch(layout layoutMetrics, hasSize bool) string {
 	icon := m.theme.Icons.Search
 	prompt := m.theme.InputPromptStyle.Render(icon + " ")
@@ -181,12 +179,13 @@ func (m *RepoSelectModel) renderSearch(layout layoutMetrics, hasSize bool) strin
 
 	inputStyle := lipgloss.NewStyle().
 		Padding(1, 2).
+		Margin(0, 0, 1, 0).
 		BorderLeft(true).
 		BorderStyle(lipgloss.ThickBorder()).
 		BorderForeground(m.theme.BorderColor)
 
 	if hasSize && layout.contentWidth > 0 {
-		inputStyle = inputStyle.Width(layout.contentWidth)
+		inputStyle = inputStyle.Width(layout.contentWidth - 1)
 	}
 
 	// Only set background if theme defines one
