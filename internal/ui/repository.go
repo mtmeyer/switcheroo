@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"switcheroo/internal/git"
 )
 
@@ -96,4 +98,196 @@ func FromGitRepositories(repos []git.Repository) []RepoDisplay {
 	}
 
 	return displays
+}
+
+// Selectable interface implementation for RepoDisplay
+
+func (r RepoDisplay) GetID() string {
+	return r.Path
+}
+
+func (r RepoDisplay) GetName() string {
+	return r.Name
+}
+
+func (r RepoDisplay) GetPath() string {
+	return r.Path
+}
+
+func (r RepoDisplay) GetBranch() string {
+	return r.CurrentBranch
+}
+
+func (r RepoDisplay) HasChildren() bool {
+	return r.HasWorktrees
+}
+
+func (r RepoDisplay) OnSelect() string {
+	if r.HasWorktrees {
+		return "" // Has children, need to drill in
+	}
+	return r.Path
+}
+
+func (r RepoDisplay) RenderHeader(theme Theme) string {
+	nameLabel := theme.LabelStyle.Render(theme.Icons.Folder + " ")
+	maxNameWidth := 40 // reasonable default
+	truncatedName := truncateWithEllipsis(r.Name, maxNameWidth)
+	return nameLabel + theme.ValueStyle.Render(truncatedName)
+}
+
+func (r RepoDisplay) RenderChildren(theme Theme, settings PreviewSettings) []string {
+	var lines []string
+
+	if r.HasWorktrees && len(r.Worktrees) > 0 {
+		worktreeIcon := theme.Icons.Worktree
+		lines = append(lines, theme.LabelStyle.Render(worktreeIcon+" Worktrees"))
+		lines = append(lines, "")
+
+		limit := len(r.Worktrees)
+		if limit > maxPreviewListItems {
+			limit = maxPreviewListItems
+		}
+		for i := 0; i < limit; i++ {
+			worktree := r.Worktrees[i]
+			line := "  " + theme.Icons.ChevronRight + " " + worktree.Name
+			lines = append(lines, theme.ValueStyle.Render(line))
+		}
+		if len(r.Worktrees) > limit {
+			remaining := len(r.Worktrees) - limit
+			moreLine := "  ... " + fmt.Sprintf("%d more worktrees", remaining)
+			lines = append(lines, theme.HelpStyle.Render(moreLine))
+		}
+	} else if len(r.Branches) > 0 {
+		branchIcon := theme.Icons.Branch
+		lines = append(lines, theme.LabelStyle.Render(branchIcon+" Branches"))
+		lines = append(lines, "")
+
+		limit := len(r.Branches)
+		if limit > maxPreviewListItems {
+			limit = maxPreviewListItems
+		}
+		for i := 0; i < limit; i++ {
+			branch := r.Branches[i]
+			line := "  "
+			if branch.IsCurrent {
+				line += theme.Icons.Check
+			} else {
+				line += theme.Icons.ChevronRight
+			}
+			line += " " + branch.Name
+			var extras []string
+			if settings.Repo.ShowBranchStatus {
+				extras = append(extras, formatStatusInline(theme, branch.Status))
+			}
+			if settings.Repo.ShowBranchDiff && branch.Status != "untracked" {
+				extras = append(extras, formatDiffText(theme, branch.DiffAdded, branch.DiffRemoved))
+			}
+			if len(extras) > 0 {
+				line += " " + strings.Join(extras, " ")
+			}
+			if branch.IsCurrent {
+				lines = append(lines, theme.SelectedStyle.Render(line))
+			} else {
+				lines = append(lines, theme.ValueStyle.Render(line))
+			}
+		}
+		if len(r.Branches) > limit {
+			remaining := len(r.Branches) - limit
+			moreLine := "  ... " + fmt.Sprintf("%d more branches", remaining)
+			lines = append(lines, theme.HelpStyle.Render(moreLine))
+		}
+	}
+
+	return lines
+}
+
+func (r RepoDisplay) RenderMetadata(theme Theme, settings PreviewSettings) []string {
+	var lines []string
+
+	// Path line
+	pathStyle := lipgloss.NewStyle().Foreground(theme.MutedColor)
+	lines = append(lines, pathStyle.Render("  "+r.Path))
+
+	if settings.Repo.ShowLineDiff {
+		lines = append(lines, "")
+		lines = append(lines, theme.LabelStyle.Render(theme.Icons.Modified+" Line Diff"))
+		diffLine := "  " + formatDiffText(theme, r.LineDiffAdded, r.LineDiffRemoved)
+		lines = append(lines, diffLine)
+	}
+
+	return lines
+}
+
+// Selectable interface implementation for WorktreeDisplay
+
+func (w WorktreeDisplay) GetID() string {
+	return w.Path
+}
+
+func (w WorktreeDisplay) GetName() string {
+	return w.Name
+}
+
+func (w WorktreeDisplay) GetPath() string {
+	return w.Path
+}
+
+func (w WorktreeDisplay) GetBranch() string {
+	return w.Branch
+}
+
+func (w WorktreeDisplay) HasChildren() bool {
+	return false
+}
+
+func (w WorktreeDisplay) OnSelect() string {
+	return w.Path
+}
+
+func (w WorktreeDisplay) RenderHeader(theme Theme) string {
+	nameLabel := theme.LabelStyle.Render(theme.Icons.Worktree + " ")
+	maxNameWidth := 40
+	truncatedName := truncateWithEllipsis(w.Name, maxNameWidth)
+	return nameLabel + theme.ValueStyle.Render(truncatedName)
+}
+
+func (w WorktreeDisplay) RenderChildren(theme Theme, settings PreviewSettings) []string {
+	return nil // Worktrees don't have children
+}
+
+func (w WorktreeDisplay) RenderMetadata(theme Theme, settings PreviewSettings) []string {
+	var lines []string
+
+	if w.Branch != "" {
+		branchLine := theme.LabelStyle.Render(theme.Icons.Branch+" Branch ") + theme.ValueStyle.Render(w.Branch)
+		lines = append(lines, branchLine)
+	}
+
+	pathStyle := lipgloss.NewStyle().Foreground(theme.MutedColor)
+	lines = append(lines, "")
+	lines = append(lines, pathStyle.Render(w.Path))
+
+	if settings.Worktree.ShowStatus {
+		status := formatStatusValue(theme, w.Status)
+		line := theme.LabelStyle.Render(theme.Icons.Warning+" Status ") + " " + status
+		lines = append(lines, "")
+		lines = append(lines, line)
+	}
+
+	if settings.Worktree.ShowLineDiff {
+		lines = append(lines, theme.LabelStyle.Render(theme.Icons.Modified+" Line Diff"))
+		diff := "  " + formatDiffText(theme, w.DiffAdded, w.DiffRemoved)
+		lines = append(lines, diff)
+	}
+
+	if w.Locked {
+		warningStyle := lipgloss.NewStyle()
+		if theme.WarningColor != "" {
+			warningStyle = warningStyle.Foreground(theme.WarningColor)
+		}
+		lines = append(lines, warningStyle.Render(theme.Icons.Warning+" Locked"))
+	}
+
+	return lines
 }

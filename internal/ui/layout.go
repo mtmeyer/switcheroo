@@ -1,5 +1,11 @@
 package ui
 
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
 const (
 	maxContainerWidth = 100
 	baseListWidth     = 35
@@ -63,4 +69,78 @@ func calculateLayout(termWidth int) layoutMetrics {
 		listWidth:      listWidth,
 		previewWidth:   previewWidth,
 	}
+}
+
+// renderSideBySide renders the list and preview panes side by side
+func renderSideBySide(listContent, previewContent string, layout layoutMetrics, theme Theme) string {
+	listPaneWidth := layout.listWidth
+	previewPaneWidth := layout.previewWidth
+
+	if listPaneWidth < 1 {
+		listPaneWidth = 1
+	}
+	if previewPaneWidth < 1 {
+		previewPaneWidth = 1
+	}
+
+	// Render left pane (list)
+	leftStyle := lipgloss.NewStyle().
+		Width(listPaneWidth).
+		Height(paneHeight).
+		Padding(1, 2).
+		BorderLeft(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(theme.BorderColor)
+
+	if theme.ListBgColor != lipgloss.Color("") {
+		leftStyle = leftStyle.Background(theme.ListBgColor)
+	}
+	leftPane := leftStyle.Render(listContent)
+
+	// Render right pane (preview)
+	rightStyle := lipgloss.NewStyle().
+		Width(previewPaneWidth).
+		Height(paneHeight).
+		Padding(1, 2).
+		BorderLeft(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(theme.BorderColor)
+
+	if theme.PreviewBgColor != lipgloss.Color("") {
+		rightStyle = rightStyle.Background(theme.PreviewBgColor)
+	}
+	rightPane := rightStyle.Render(previewContent)
+
+	// Join horizontally
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, strings.Repeat(" ", gapWidth), rightPane)
+}
+
+// wrapInContainer wraps the inner content in the main container with border
+func wrapInContainer(inner string, layout layoutMetrics, hasSize bool, theme Theme, width, height int) string {
+	containerStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(theme.BorderColor).
+		Padding(1, containerPadding)
+
+	if hasSize {
+		containerStyle = containerStyle.Width(layout.containerWidth)
+	}
+
+	if theme.BackgroundColor != lipgloss.Color("") {
+		containerStyle = containerStyle.Background(theme.BackgroundColor)
+	}
+
+	contentBox := containerStyle.Render(inner)
+
+	if !hasSize {
+		return contentBox
+	}
+
+	return lipgloss.Place(
+		width,
+		height,
+		lipgloss.Center,
+		lipgloss.Center,
+		contentBox,
+	)
 }
