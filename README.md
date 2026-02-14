@@ -121,3 +121,11 @@ Example (`themes/dracula.json`):
   "selected_bg": "#44475a"
 }
 ```
+## Preview Fields
+
+- Add `"branch_status"` to `preview.repo_fields` to show `(clean/behind/untracked/…)` after each branch (local-only branches appear as `(untracked)`).
+- Add `"branch_diff"` to `preview.repo_fields` to render per-branch `+insertions/-deletions` counts when a branch tracks an upstream.
+- Add `"line_diff"` to `preview.repo_fields` or `preview.worktree_fields` for a summary line using themed colors (repo summary compares the current branch against its upstream, or the default branch when no upstream is configured).
+
+Branches with no upstream are shown as `(untracked)` and omit per-branch diff counts.
+- Add `"status"` to `preview.worktree_fields` to list the worktree’s status as its own property.

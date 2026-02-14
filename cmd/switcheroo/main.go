@@ -83,8 +83,10 @@ func main() {
 		}
 	}
 
+	previewSettings := ui.NewPreviewSettings(cfg.Preview.RepoFields, cfg.Preview.WorktreeFields)
+
 	// Initialize Bubble Tea program with real data and theme
-	p := tea.NewProgram(ui.NewModel(repoDisplays, theme), tea.WithAltScreen())
+	p := tea.NewProgram(ui.NewModel(repoDisplays, theme, previewSettings), tea.WithAltScreen())
 
 	finalModel, err := p.Run()
 	if err != nil {

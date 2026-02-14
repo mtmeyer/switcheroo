@@ -19,17 +19,19 @@ type Model struct {
 	state               AppState
 	repoSelectModel     tea.Model
 	worktreeSelectModel tea.Model
+	settings            PreviewSettings
 	theme               Theme
 	selectedPath        string
 	err                 error
 }
 
 // NewModel creates a new root model using discovered repositories and theme
-func NewModel(repos []RepoDisplay, theme Theme) Model {
+func NewModel(repos []RepoDisplay, theme Theme, settings PreviewSettings) Model {
 	return Model{
 		state:           StateRepoSelect,
-		repoSelectModel: NewRepoSelectModel(repos, theme),
+		repoSelectModel: NewRepoSelectModel(repos, theme, settings),
 		theme:           theme,
+		settings:        settings,
 	}
 }
 
@@ -91,7 +93,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) handleRepoSelected(repo RepoDisplay) (tea.Model, tea.Cmd) {
 	if repo.HasWorktrees && len(repo.Worktrees) > 0 {
-		wtModel := NewWorktreeSelectModel(repo, m.theme)
+		wtModel := NewWorktreeSelectModel(repo, m.theme, m.settings)
 		m.worktreeSelectModel = wtModel
 		m.state = StateWorktreeSelect
 		return m, nil

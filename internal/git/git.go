@@ -1,8 +1,11 @@
 package git
 
 import (
+	"fmt"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -27,10 +30,13 @@ func GetWorktrees(repoPath string) ([]Worktree, error) {
 	// Filter out the main worktree (the repository itself)
 	// Only return additional worktrees
 	var additionalWorktrees []Worktree
-	for _, wt := range worktrees {
-		if wt.Path != repoPath {
-			additionalWorktrees = append(additionalWorktrees, wt)
+	for i := range worktrees {
+		wt := &worktrees[i]
+		if wt.Path == repoPath {
+			continue
 		}
+		populateWorktreeMetadata(wt)
+		additionalWorktrees = append(additionalWorktrees, *wt)
 	}
 
 	return additionalWorktrees, nil
@@ -79,8 +85,8 @@ func parseWorktreeList(output string) []Worktree {
 
 // GetBranches returns all local branches for a repository
 func GetBranches(repoPath string) ([]Branch, error) {
-	// Get branch list with format: name|isCurrent
-	cmd := exec.Command("git", "-C", repoPath, "branch", "--format=%(refname:short)|%(HEAD)")
+	format := "%(refname:short)|%(HEAD)|%(upstream:short)|%(upstream:track)"
+	cmd := exec.Command("git", "-C", repoPath, "branch", "--format="+format)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -88,25 +94,30 @@ func GetBranches(repoPath string) ([]Branch, error) {
 
 	var branches []Branch
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-
 		parts := strings.Split(line, "|")
-		if len(parts) != 2 {
+		if len(parts) < 4 {
 			continue
 		}
-
-		branchName := parts[0]
-		isCurrent := parts[1] == "*"
-
-		branches = append(branches, Branch{
-			Name:      branchName,
-			IsCurrent: isCurrent,
-		})
+		branch := Branch{
+			Name:      parts[0],
+			IsCurrent: parts[1] == "*",
+			Upstream:  parts[2],
+		}
+		track := parts[3]
+		branch.Status = determineBranchStatus(branch.Upstream, track)
+		if branch.Upstream != "" {
+			added, removed, err := diffAgainstUpstream(repoPath, branch.Name, branch.Upstream)
+			if err == nil {
+				branch.DiffAdded = added
+				branch.DiffRemoved = removed
+			}
+		}
+		branches = append(branches, branch)
 	}
 
 	return branches, nil
@@ -120,4 +131,151 @@ func GetCurrentBranch(repoPath string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+func populateWorktreeMetadata(wt *Worktree) {
+	status, err := workingTreeStatus(wt.Path)
+	if err == nil {
+		wt.Status = status
+	}
+	added, removed, err := diffInWorktree(wt.Path)
+	if err == nil {
+		wt.DiffAdded = added
+		wt.DiffRemoved = removed
+	}
+}
+
+func workingTreeStatus(path string) (string, error) {
+	cmd := exec.Command("git", "-C", path, "status", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	trimmed := strings.TrimSpace(string(output))
+	if trimmed == "" {
+		return "clean", nil
+	}
+	if strings.Contains(trimmed, "??") {
+		return "untracked", nil
+	}
+	return "modified", nil
+}
+
+func diffInWorktree(path string) (int, int, error) {
+	cmd := exec.Command("git", "-C", path, "diff", "--shortstat")
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, 0, err
+	}
+	added, removed := parseShortstat(string(output))
+	return added, removed, nil
+}
+
+func diffAgainstUpstream(repoPath, branch, upstream string) (int, int, error) {
+	if branch == "" || upstream == "" {
+		return 0, 0, nil
+	}
+	arg := branch + "..." + upstream
+	cmd := exec.Command("git", "-C", repoPath, "diff", "--shortstat", arg)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, 0, err
+	}
+	added, removed := parseShortstat(string(output))
+	return added, removed, nil
+}
+
+func DiffBranches(repoPath, left, right string) (int, int, error) {
+	if left == "" || right == "" {
+		return 0, 0, nil
+	}
+	arg := left + "..." + right
+	cmd := exec.Command("git", "-C", repoPath, "diff", "--shortstat", arg)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, 0, err
+	}
+	added, removed := parseShortstat(string(output))
+	return added, removed, nil
+}
+
+func determineBranchStatus(upstream, track string) string {
+	if upstream == "" {
+		return "untracked"
+	}
+	track = strings.ToLower(track)
+	switch {
+	case strings.Contains(track, "ahead") && strings.Contains(track, "behind"):
+		return "diverged"
+	case strings.Contains(track, "ahead"):
+		return "ahead"
+	case strings.Contains(track, "behind"):
+		return "behind"
+	case strings.Contains(track, "up to date"):
+		return "clean"
+	default:
+		return "clean"
+	}
+}
+
+var (
+	insertionsRe = regexp.MustCompile(`(?P<count>\d+)\s+insertions?\(\+\)`)
+	deletionsRe  = regexp.MustCompile(`(?P<count>\d+)\s+deletions?\(-\)`)
+)
+
+func parseShortstat(output string) (int, int) {
+	added := extractCount(insertionsRe, output)
+	removed := extractCount(deletionsRe, output)
+	return added, removed
+}
+
+func extractCount(re *regexp.Regexp, output string) int {
+	match := re.FindStringSubmatch(output)
+	if len(match) < 2 {
+		return 0
+	}
+	return atoiSafe(match[1])
+}
+
+func atoiSafe(value string) int {
+	i, err := strconv.Atoi(value)
+	if err != nil {
+		return 0
+	}
+	return i
+}
+
+func GetDefaultBranch(repoPath string) (string, error) {
+	cmd := exec.Command("git", "-C", repoPath, "symbolic-ref", "refs/remotes/origin/HEAD")
+	output, err := cmd.Output()
+	if err == nil {
+		ref := strings.TrimSpace(string(output))
+		if strings.HasPrefix(ref, "refs/remotes/origin/") {
+			candidate := strings.TrimPrefix(ref, "refs/remotes/origin/")
+			if branchExists(repoPath, candidate) {
+				return candidate, nil
+			}
+		}
+	}
+
+	candidates := []string{"main", "master"}
+	for _, candidate := range candidates {
+		if branchExists(repoPath, candidate) {
+			return candidate, nil
+		}
+	}
+
+	if current, err := GetCurrentBranch(repoPath); err == nil && current != "" {
+		return current, nil
+	}
+
+	return "", fmt.Errorf("could not determine default branch")
+}
+
+func branchExists(repoPath, branch string) bool {
+	if branch == "" {
+		return false
+	}
+	cmd := exec.Command("git", "-C", repoPath, "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
+	return cmd.Run() == nil
 }

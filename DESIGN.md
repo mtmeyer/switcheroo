@@ -304,12 +304,17 @@ Available fields for `preview.repo_fields`:
 | `path` | Full absolute path | `/Users/me/repos/my-project` |
 | `worktree_count` | Number of additional worktrees | `Worktrees: 3` or `Worktrees: None` (disabled) |
 | `branches` | List of all local branches, current highlighted | See Branch Display Format |
+| `branch_status` | Shows `(status)` after each branch | `feature/login (ahead)` / `feature/new-ui (untracked)` |
+| `branch_diff` | Shows per-branch diff summary when upstream is configured | `feature/login +14 -9` |
+| `line_diff` | Global diff summary for current branch (falls back to default branch when untracked) | `+14 additions / -9 deletions` |
 | `current_branch` | Just the current branch name | `Current: feature/new-ui` |
 | `status` | Working directory status | `Clean` / `Modified (3 files)` / `Untracked files` |
 | `last_commit` | Most recent commit | `feat: add feature (2h ago) - John Doe` |
 | `commit_hash` | Short commit SHA | `a3f5b2c` |
 | `remote_url` | Git remote origin URL | `git@github.com:user/repo.git` |
 | `ahead_behind` | Sync status with remote | `↑2 ↓1` (2 ahead, 1 behind) |
+
+Branches without an upstream are labeled `(untracked)` in the preview and omit per-branch diff counts. The global `line_diff` summary compares the current branch to its upstream or, if none exists, to the repository's default branch.
 
 ### Worktree Preview Fields
 
@@ -321,6 +326,7 @@ Available fields for `preview.worktree_fields`:
 | `path` | Full absolute path | `/Users/me/repos/project/worktrees/feature-branch` |
 | `branch` | Branch checked out | `feature/new-ui` |
 | `status` | Working directory status | `Clean` / `Modified (3 files)` |
+| `line_diff` | Diff summary for the worktree | `+8 / -3` |
 | `last_commit` | Most recent commit | `feat: add feature (2h ago) - John Doe` |
 | `commit_hash` | Short commit SHA | `a3f5b2c` |
 | `ahead_behind` | Sync status with remote | `↑2 ↓1` |

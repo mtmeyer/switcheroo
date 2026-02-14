@@ -16,6 +16,7 @@ type Repository struct {
 	Branches      []Branch
 	CurrentBranch string
 	RemoteURL     string
+	DefaultBranch string
 }
 
 // DiscoverRepositories scans a directory for git repositories
@@ -61,6 +62,10 @@ func LoadRepository(path string) (*Repository, error) {
 	repo := &Repository{
 		Name: filepath.Base(path),
 		Path: path,
+	}
+
+	if defaultBranch, err := GetDefaultBranch(path); err == nil {
+		repo.DefaultBranch = defaultBranch
 	}
 
 	// Try to get worktrees

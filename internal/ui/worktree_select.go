@@ -15,17 +15,19 @@ type WorktreeSelectModel struct {
 	cursor            int
 	searchQuery       string
 	theme             Theme
+	settings          PreviewSettings
 	width             int
 	height            int
 }
 
 // NewWorktreeSelectModel creates a new model for a repo's worktrees
-func NewWorktreeSelectModel(repo RepoDisplay, theme Theme) WorktreeSelectModel {
+func NewWorktreeSelectModel(repo RepoDisplay, theme Theme, settings PreviewSettings) WorktreeSelectModel {
 	return WorktreeSelectModel{
 		repoName:          repo.Name,
 		worktrees:         repo.Worktrees,
 		filteredWorktrees: repo.Worktrees,
 		theme:             theme,
+		settings:          settings,
 	}
 }
 
@@ -251,6 +253,19 @@ func (m WorktreeSelectModel) renderPreview() string {
 		pathStyle := lipgloss.NewStyle().Foreground(m.theme.MutedColor)
 		lines = append(lines, "")
 		lines = append(lines, pathStyle.Render(wt.Path))
+	}
+
+	if m.settings.Worktree.ShowStatus {
+		status := formatStatusValue(m.theme, wt.Status)
+		line := m.theme.LabelStyle.Render(m.theme.Icons.Warning+" Status ") + " " + status
+		lines = append(lines, "")
+		lines = append(lines, line)
+	}
+
+	if m.settings.Worktree.ShowLineDiff {
+		lines = append(lines, m.theme.LabelStyle.Render(m.theme.Icons.Modified+" Line Diff"))
+		diff := "  " + formatDiffText(m.theme, wt.DiffAdded, wt.DiffRemoved)
+		lines = append(lines, diff)
 	}
 
 	if wt.Locked {

@@ -147,11 +147,17 @@ Icons.ChevronRight = "\uf054" // nf-fa-chevron_right
 - `name`, `path`, `branches`, `current_branch`
 - `status`, `last_commit`, `commit_hash`
 - `remote_url`, `ahead_behind`
+- `branch_status` adds `(clean/ahead/…)` after each branch
+- `branch_diff` adds `+insertions/-deletions` per branch
+- `line_diff` adds a summary line for the current branch
 
 **Worktree Fields:**
 - `name`, `path`, `branch`
 - `status`, `last_commit`, `commit_hash`
 - `ahead_behind`, `is_locked`
+- `line_diff` adds `+insertions/-deletions` for the worktree
+
+Branches without an upstream are labelled `(untracked)` in the repo preview and skip per-branch diff numbers. The overall `line_diff` summary compares the current branch to its upstream or the repo's default branch when no upstream exists.
 
 ## Git Commands Used
 

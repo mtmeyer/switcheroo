@@ -1,11 +1,14 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+const maxPreviewListItems = 8
 
 // RepoSelectModel handles repository selection
 type RepoSelectModel struct {
@@ -15,12 +18,13 @@ type RepoSelectModel struct {
 	scrollOffset  int
 	searchQuery   string
 	theme         Theme
+	settings      PreviewSettings
 	width         int
 	height        int
 }
 
 // NewRepoSelectModel creates a new repository selection model
-func NewRepoSelectModel(repos []RepoDisplay, theme Theme) RepoSelectModel {
+func NewRepoSelectModel(repos []RepoDisplay, theme Theme, settings PreviewSettings) RepoSelectModel {
 	return RepoSelectModel{
 		repos:         repos,
 		filteredRepos: repos,
@@ -28,6 +32,7 @@ func NewRepoSelectModel(repos []RepoDisplay, theme Theme) RepoSelectModel {
 		scrollOffset:  0,
 		searchQuery:   "",
 		theme:         theme,
+		settings:      settings,
 		width:         0,
 		height:        0,
 	}
@@ -281,23 +286,65 @@ func (m *RepoSelectModel) renderPreview() string {
 		lines = append(lines, m.theme.LabelStyle.Render(worktreeIcon+" Worktrees"))
 		lines = append(lines, "")
 
-		for _, worktree := range repo.Worktrees {
+		limit := len(repo.Worktrees)
+		if limit > maxPreviewListItems {
+			limit = maxPreviewListItems
+		}
+		for i := 0; i < limit; i++ {
+			worktree := repo.Worktrees[i]
 			line := "  " + m.theme.Icons.ChevronRight + " " + worktree.Name
 			lines = append(lines, m.theme.ValueStyle.Render(line))
+		}
+		if len(repo.Worktrees) > limit {
+			remaining := len(repo.Worktrees) - limit
+			moreLine := fmt.Sprintf("  ... %d more worktrees", remaining)
+			lines = append(lines, m.theme.HelpStyle.Render(moreLine))
 		}
 	} else {
 		branchIcon := m.theme.Icons.Branch
 		lines = append(lines, m.theme.LabelStyle.Render(branchIcon+" Branches"))
 		lines = append(lines, "")
 
-		for _, branch := range repo.Branches {
-			if branch == repo.CurrentBranch {
-				line := "  " + m.theme.Icons.Check + " " + branch
+		limit := len(repo.Branches)
+		if limit > maxPreviewListItems {
+			limit = maxPreviewListItems
+		}
+		for i := 0; i < limit; i++ {
+			branch := repo.Branches[i]
+			line := "  "
+			if branch.IsCurrent {
+				line += m.theme.Icons.Check
+			} else {
+				line += m.theme.Icons.ChevronRight
+			}
+			line += " " + branch.Name
+			var extras []string
+			if m.settings.Repo.ShowBranchStatus {
+				extras = append(extras, formatStatusInline(m.theme, branch.Status))
+			}
+			if m.settings.Repo.ShowBranchDiff && branch.Status != "untracked" {
+				extras = append(extras, formatDiffText(m.theme, branch.DiffAdded, branch.DiffRemoved))
+			}
+			if len(extras) > 0 {
+				line += " " + strings.Join(extras, " ")
+			}
+			if branch.IsCurrent {
 				lines = append(lines, m.theme.SelectedStyle.Render(line))
 			} else {
-				line := "  " + m.theme.Icons.ChevronRight + " " + branch
 				lines = append(lines, m.theme.ValueStyle.Render(line))
 			}
+		}
+		if len(repo.Branches) > limit {
+			remaining := len(repo.Branches) - limit
+			moreLine := fmt.Sprintf("  ... %d more branches", remaining)
+			lines = append(lines, m.theme.HelpStyle.Render(moreLine))
+		}
+
+		if m.settings.Repo.ShowLineDiff {
+			lines = append(lines, "")
+			lines = append(lines, m.theme.LabelStyle.Render(m.theme.Icons.Modified+" Line Diff"))
+			diffLine := "  " + formatDiffText(m.theme, repo.LineDiffAdded, repo.LineDiffRemoved)
+			lines = append(lines, diffLine)
 		}
 	}
 
