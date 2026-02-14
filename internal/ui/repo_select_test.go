@@ -238,8 +238,8 @@ func TestRenderItemLine_Truncation(t *testing.T) {
 	// Create a layout with limited width
 	layout := layoutMetrics{listWidth: 40} // 40 - 9 = 31 chars for name
 
-	// Render the line
-	rendered := m.renderItemLine(items[0], false, layout)
+	// Render the line (no matched indexes)
+	rendered := m.renderItemLine(items[0], false, layout, nil)
 
 	// The rendered output should contain "..." if the name is longer than available space
 	if !strings.Contains(rendered, "...") {
@@ -250,7 +250,7 @@ func TestRenderItemLine_Truncation(t *testing.T) {
 	shortName := "short-repo"
 	items2 := []Selectable{RepoDisplay{Name: shortName}}
 	m2 := NewListSelectModel("Test", items2, Theme{}, PreviewSettings{}, nil)
-	rendered2 := m2.renderItemLine(items2[0], false, layout)
+	rendered2 := m2.renderItemLine(items2[0], false, layout, nil)
 
 	// Should contain the full short name
 	if !strings.Contains(rendered2, shortName) {
@@ -265,16 +265,104 @@ func TestRenderItemLine_DynamicWidth(t *testing.T) {
 
 	// Test with narrow layout - should truncate
 	narrowLayout := layoutMetrics{listWidth: 30} // 30 - 9 = 21 chars for name
-	renderedNarrow := m.renderItemLine(items[0], false, narrowLayout)
+	renderedNarrow := m.renderItemLine(items[0], false, narrowLayout, nil)
 	if !strings.Contains(renderedNarrow, "...") {
 		t.Errorf("Expected truncation with narrow layout, got: %s", renderedNarrow)
 	}
 
 	// Test with wide layout - should not truncate
 	wideLayout := layoutMetrics{listWidth: 100} // 100 - 9 = 91 chars for name
-	renderedWide := m.renderItemLine(items[0], false, wideLayout)
+	renderedWide := m.renderItemLine(items[0], false, wideLayout, nil)
 	// With 91 chars available, the long name (56 chars) should fit without truncation
 	if strings.Contains(renderedWide, "...") {
 		t.Errorf("Did not expect truncation with wide layout, got: %s", renderedWide)
+	}
+}
+
+func TestHighlightVisibleMatches(t *testing.T) {
+	theme := Theme{}
+
+	tests := []struct {
+		name          string
+		truncatedText string
+		indexes       []int
+		visibleLength int
+	}{
+		{
+			name:          "no matches",
+			truncatedText: "switcheroo",
+			indexes:       []int{},
+			visibleLength: 10,
+		},
+		{
+			name:          "single match at start",
+			truncatedText: "switcheroo",
+			indexes:       []int{0},
+			visibleLength: 10,
+		},
+		{
+			name:          "multiple matches",
+			truncatedText: "switcheroo",
+			indexes:       []int{0, 6},
+			visibleLength: 10,
+		},
+		{
+			name:          "consecutive matches",
+			truncatedText: "switcheroo",
+			indexes:       []int{0, 1, 2},
+			visibleLength: 10,
+		},
+		{
+			name:          "match truncated",
+			truncatedText: "switch...",
+			indexes:       []int{8, 9},
+			visibleLength: 6,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := highlightVisibleMatches(tt.truncatedText, tt.indexes, tt.visibleLength, theme)
+
+			if len(tt.indexes) == 0 {
+				// No matches - should be unchanged
+				if result != tt.truncatedText {
+					t.Errorf("Expected unchanged text, got: %s", result)
+				}
+			} else {
+				// With matches, the result should be non-empty
+				if result == "" {
+					t.Error("Expected non-empty result with matches")
+				}
+				// Truncated matches (indexes beyond visibleLength) should not be highlighted
+				if tt.name == "match truncated" {
+					// The result should not have bold styling beyond visible characters
+					// Just verify it doesn't panic
+				}
+			}
+		})
+	}
+}
+
+func TestRenderItemLine_Highlighting(t *testing.T) {
+	items := []Selectable{RepoDisplay{Name: "switcheroo"}}
+	m := NewListSelectModel("Test", items, Theme{}, PreviewSettings{}, nil)
+	layout := layoutMetrics{listWidth: 50}
+
+	// Test with matched indexes
+	matchedIndexes := []int{0, 6} // Match 's' and 'r'
+	rendered := m.renderItemLine(items[0], false, layout, matchedIndexes)
+
+	// Should return a rendered line (styling depends on terminal capabilities)
+	if rendered == "" {
+		t.Error("Expected non-empty rendered line with highlighting")
+	}
+
+	// Test without matched indexes (no search)
+	renderedNoMatch := m.renderItemLine(items[0], false, layout, nil)
+	// Without matches, there should be no bold styling in the name portion
+	// But there might be styling from the theme, so we just check it renders
+	if renderedNoMatch == "" {
+		t.Error("Expected non-empty rendered line")
 	}
 }

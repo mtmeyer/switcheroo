@@ -30,16 +30,17 @@ type Selectable interface {
 
 // ListSelectModel handles generic list selection for any Selectable items
 type ListSelectModel struct {
-	Title         string
-	items         []Selectable
-	filteredItems []Selectable
-	cursor        int
-	scrollOffset  int
-	searchQuery   string
-	Theme         Theme
-	settings      PreviewSettings
-	Width         int
-	Height        int
+	Title          string
+	items          []Selectable
+	filteredItems  []Selectable
+	matchedIndexes [][]int // Stores which characters matched for highlighting
+	cursor         int
+	scrollOffset   int
+	searchQuery    string
+	Theme          Theme
+	settings       PreviewSettings
+	Width          int
+	Height         int
 
 	onSelect func(Selectable) tea.Cmd
 }
@@ -119,6 +120,7 @@ func (m ListSelectModel) SelectCurrent() tea.Cmd {
 func (m *ListSelectModel) filterItems() {
 	if m.searchQuery == "" {
 		m.filteredItems = m.items
+		m.matchedIndexes = nil
 	} else {
 		// Build slice of names for fuzzy search
 		names := make([]string, len(m.items))
@@ -136,8 +138,10 @@ func (m *ListSelectModel) filterItems() {
 
 		// Rebuild filtered items in score order
 		m.filteredItems = make([]Selectable, 0, len(matches))
+		m.matchedIndexes = make([][]int, 0, len(matches))
 		for _, match := range matches {
 			m.filteredItems = append(m.filteredItems, m.items[match.Index])
+			m.matchedIndexes = append(m.matchedIndexes, match.MatchedIndexes)
 		}
 	}
 
@@ -176,13 +180,17 @@ func (m ListSelectModel) RenderList(layout layoutMetrics) string {
 
 	for i := startIdx; i < endIdx; i++ {
 		item := m.filteredItems[i]
-		lines = append(lines, m.renderItemLine(item, i == m.cursor, layout))
+		var matchedIdx []int
+		if m.matchedIndexes != nil && i < len(m.matchedIndexes) {
+			matchedIdx = m.matchedIndexes[i]
+		}
+		lines = append(lines, m.renderItemLine(item, i == m.cursor, layout, matchedIdx))
 	}
 
 	return strings.Join(lines, "\n")
 }
 
-func (m ListSelectModel) renderItemLine(item Selectable, isSelected bool, layout layoutMetrics) string {
+func (m ListSelectModel) renderItemLine(item Selectable, isSelected bool, layout layoutMetrics, matchedIndexes []int) string {
 	var icon string
 	if item.HasChildren() {
 		icon = m.Theme.Icons.Worktree
@@ -197,7 +205,17 @@ func (m ListSelectModel) renderItemLine(item Selectable, isSelected bool, layout
 		maxNameWidth = 10
 	}
 
-	name := truncateWithEllipsis(item.GetName(), maxNameWidth)
+	// Get raw name and truncate FIRST (before any styling)
+	rawName := item.GetName()
+	truncatedRawName, visibleLength := truncateWithEllipsisRaw(rawName, maxNameWidth)
+
+	// Apply highlighting only to visible characters
+	var name string
+	if len(matchedIndexes) > 0 && visibleLength > 0 {
+		name = highlightVisibleMatches(truncatedRawName, matchedIndexes, visibleLength, m.Theme)
+	} else {
+		name = truncatedRawName
+	}
 
 	if isSelected {
 		cursor := m.Theme.Icons.ChevronRight
@@ -207,6 +225,54 @@ func (m ListSelectModel) renderItemLine(item Selectable, isSelected bool, layout
 		content := "  " + icon + " " + name
 		return m.Theme.ItemStyle.Render(content)
 	}
+}
+
+// truncateWithEllipsisRaw truncates a string and returns the visible length
+func truncateWithEllipsisRaw(s string, maxWidth int) (string, int) {
+	if maxWidth <= 3 {
+		return "...", 3
+	}
+	if len(s) <= maxWidth {
+		return s, len(s)
+	}
+	return s[:maxWidth-3] + "...", maxWidth
+}
+
+// highlightVisibleMatches bolds matched characters that are visible in the truncated text
+func highlightVisibleMatches(truncatedText string, allMatchedIndexes []int, visibleLength int, theme Theme) string {
+	if len(allMatchedIndexes) == 0 || visibleLength == 0 {
+		return truncatedText
+	}
+
+	// Create a set of matched indexes for O(1) lookup
+	// Only consider indexes within the visible portion
+	indexSet := make(map[int]bool)
+	for _, idx := range allMatchedIndexes {
+		if idx < visibleLength {
+			indexSet[idx] = true
+		}
+	}
+
+	// Build result with highlighting only for visible matches
+	var result strings.Builder
+	for i := 0; i < visibleLength && i < len(truncatedText); i++ {
+		char := truncatedText[i]
+		if indexSet[i] {
+			// Bold the matched character using simple ANSI codes
+			result.WriteString("\x1b[1m")
+			result.WriteByte(char)
+			result.WriteString("\x1b[0m")
+		} else {
+			result.WriteByte(char)
+		}
+	}
+
+	// Append any remaining part (like "...") without highlighting
+	if visibleLength < len(truncatedText) {
+		result.WriteString(truncatedText[visibleLength:])
+	}
+
+	return result.String()
 }
 
 // RenderPreview renders the preview pane for the selected item
