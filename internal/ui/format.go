@@ -51,3 +51,14 @@ func formatDiffText(theme Theme, added, removed int) string {
 	}
 	return addedText + " " + removedText
 }
+
+// truncateWithEllipsis truncates a string to maxWidth and adds "..." if truncated
+func truncateWithEllipsis(s string, maxWidth int) string {
+	if maxWidth <= 3 {
+		return "..."
+	}
+	if len(s) <= maxWidth {
+		return s
+	}
+	return s[:maxWidth-3] + "..."
+}

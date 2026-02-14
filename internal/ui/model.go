@@ -4,7 +4,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// AppState represents the current state of the application
 type AppState int
 
 const (
@@ -14,7 +13,6 @@ const (
 	StateError
 )
 
-// Model is the root Bubble Tea model
 type Model struct {
 	state               AppState
 	repoSelectModel     tea.Model
@@ -25,7 +23,6 @@ type Model struct {
 	err                 error
 }
 
-// NewModel creates a new root model using discovered repositories and theme
 func NewModel(repos []RepoDisplay, theme Theme, settings PreviewSettings) Model {
 	return Model{
 		state:           StateRepoSelect,
@@ -35,12 +32,10 @@ func NewModel(repos []RepoDisplay, theme Theme, settings PreviewSettings) Model 
 	}
 }
 
-// Init initializes the model
 func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-// Update handles messages and updates the model
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -101,7 +96,6 @@ func (m Model) handleRepoSelected(repo RepoDisplay) (tea.Model, tea.Cmd) {
 	return m, pathSelectedCmd(repo.Path)
 }
 
-// View renders the model
 func (m Model) View() string {
 	switch m.state {
 	case StateRepoSelect:

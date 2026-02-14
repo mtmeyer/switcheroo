@@ -55,10 +55,12 @@ func (m RepoSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
+				m.adjustScrollOffset()
 			}
 		case "down", "j":
 			if m.cursor < len(m.filteredRepos)-1 {
 				m.cursor++
+				m.adjustScrollOffset()
 			}
 		case "enter":
 			if len(m.filteredRepos) > 0 {
@@ -95,6 +97,22 @@ func (m *RepoSelectModel) filterRepos() {
 	}
 	if m.cursor >= len(m.filteredRepos) {
 		m.cursor = 0
+		m.scrollOffset = 0
+	}
+}
+
+// adjustScrollOffset ensures the cursor stays visible by adjusting scroll offset
+func (m *RepoSelectModel) adjustScrollOffset() {
+	visibleHeight := paneHeight - 2
+
+	// If cursor is above the visible area, scroll up
+	if m.cursor < m.scrollOffset {
+		m.scrollOffset = m.cursor
+	}
+
+	// If cursor is below the visible area, scroll down
+	if m.cursor >= m.scrollOffset+visibleHeight {
+		m.scrollOffset = m.cursor - visibleHeight + 1
 	}
 }
 
@@ -191,7 +209,7 @@ func (m *RepoSelectModel) renderContent(layout layoutMetrics) string {
 		previewPaneWidth = 1
 	}
 	// Render left pane (list)
-	leftContent := m.renderList()
+	leftContent := m.renderList(layout)
 	leftStyle := lipgloss.NewStyle().
 		Width(listPaneWidth).
 		Height(paneHeight).
@@ -207,7 +225,7 @@ func (m *RepoSelectModel) renderContent(layout layoutMetrics) string {
 	leftPane := leftStyle.Render(leftContent)
 
 	// Render right pane (preview)
-	rightContent := m.renderPreview()
+	rightContent := m.renderPreview(layout)
 	rightStyle := lipgloss.NewStyle().
 		Width(previewPaneWidth).
 		Height(paneHeight).
@@ -227,7 +245,7 @@ func (m *RepoSelectModel) renderContent(layout layoutMetrics) string {
 }
 
 // renderList renders the repository list
-func (m *RepoSelectModel) renderList() string {
+func (m *RepoSelectModel) renderList(layout layoutMetrics) string {
 	if len(m.filteredRepos) == 0 {
 		return m.theme.LabelStyle.Render("No repositories found")
 	}
@@ -235,8 +253,20 @@ func (m *RepoSelectModel) renderList() string {
 	visibleHeight := paneHeight - 2 // Account for padding
 	var lines []string
 
-	// Show repos that fit in the visible area
-	for i := 0; i < len(m.filteredRepos) && i < visibleHeight; i++ {
+	// Calculate max width for repo names (accounting for padding, cursor, icon)
+	maxNameWidth := layout.listWidth - 9 // 4 padding + 1 cursor + 1 icon + 3 spaces
+	if maxNameWidth < 10 {
+		maxNameWidth = 10
+	}
+
+	// Show repos that fit in the visible area, accounting for scroll offset
+	startIdx := m.scrollOffset
+	endIdx := startIdx + visibleHeight
+	if endIdx > len(m.filteredRepos) {
+		endIdx = len(m.filteredRepos)
+	}
+
+	for i := startIdx; i < endIdx; i++ {
 		repo := m.filteredRepos[i]
 
 		var icon string
@@ -246,13 +276,16 @@ func (m *RepoSelectModel) renderList() string {
 			icon = m.theme.Icons.Git
 		}
 
+		// Truncate repo name with ellipsis
+		truncatedName := truncateWithEllipsis(repo.Name, maxNameWidth)
+
 		var line string
 		if i == m.cursor {
 			cursor := m.theme.Icons.ChevronRight
-			content := cursor + " " + icon + " " + repo.Name
+			content := cursor + " " + icon + " " + truncatedName
 			line = m.theme.SelectedStyle.Render(content)
 		} else {
-			content := "  " + icon + " " + repo.Name
+			content := "  " + icon + " " + truncatedName
 			line = m.theme.ItemStyle.Render(content)
 		}
 
@@ -263,7 +296,7 @@ func (m *RepoSelectModel) renderList() string {
 }
 
 // renderPreview renders the preview pane
-func (m *RepoSelectModel) renderPreview() string {
+func (m *RepoSelectModel) renderPreview(layout layoutMetrics) string {
 	if len(m.filteredRepos) == 0 || m.cursor >= len(m.filteredRepos) {
 		return ""
 	}
@@ -271,9 +304,16 @@ func (m *RepoSelectModel) renderPreview() string {
 	repo := m.filteredRepos[m.cursor]
 	var lines []string
 
-	// Name with folder icon
+	// Calculate max width for repo name in preview
+	maxNameWidth := layout.previewWidth - 6 // 4 padding + 1 icon + 1 space
+	if maxNameWidth < 20 {
+		maxNameWidth = 20
+	}
+
+	// Name with folder icon (truncated)
 	nameLabel := m.theme.LabelStyle.Render(m.theme.Icons.Folder + " ")
-	lines = append(lines, nameLabel+m.theme.ValueStyle.Render(repo.Name))
+	truncatedName := truncateWithEllipsis(repo.Name, maxNameWidth)
+	lines = append(lines, nameLabel+m.theme.ValueStyle.Render(truncatedName))
 
 	// Path
 	pathStyle := lipgloss.NewStyle().Foreground(m.theme.MutedColor)
