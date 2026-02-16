@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"strings"
-
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -105,27 +103,6 @@ func (m RepoSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the repo selection view
 func (m RepoSelectModel) View() string {
-	layout := calculateLayout(m.list.Width)
-	hasSize := m.list.Width > 0 && m.list.Height > 0
-
-	// Build components
-	title := m.list.RenderTitle()
-	search := m.list.RenderSearch(layout, hasSize)
-	list := m.list.RenderList(layout)
-	preview := m.list.RenderPreview()
-
-	// Combine list and preview side by side
-	content := renderSideBySide(list, preview, layout, m.list.Theme)
-
-	// Combine all sections
-	sections := []string{title, search, content, m.renderHelp()}
-	inner := strings.Join(sections, "\n")
-
-	// Wrap in container
-	return wrapInContainer(inner, layout, hasSize, m.list.Theme, m.list.Width, m.list.Height)
-}
-
-func (m RepoSelectModel) renderHelp() string {
 	helpText := "↑/k up • ↓/j down • enter select • q/ctrl+c quit"
-	return m.list.Theme.HelpStyle.Render(helpText)
+	return RenderSelectionView(m.list, helpText)
 }

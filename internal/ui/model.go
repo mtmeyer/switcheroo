@@ -21,6 +21,8 @@ type Model struct {
 	theme               Theme
 	selectedPath        string
 	err                 error
+	lastWidth           int
+	lastHeight          int
 }
 
 func NewModel(repos []RepoDisplay, theme Theme, settings PreviewSettings) Model {
@@ -44,6 +46,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
+		// Store dimensions for future screen transitions
+		m.lastWidth = msg.Width
+		m.lastHeight = msg.Height
+
 		switch m.state {
 		case StateRepoSelect:
 			updated, cmd := m.repoSelectModel.Update(msg)
@@ -89,6 +95,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) handleRepoSelected(repo RepoDisplay) (tea.Model, tea.Cmd) {
 	if repo.HasWorktrees && len(repo.Worktrees) > 0 {
 		wtModel := NewWorktreeSelectModel(repo, m.theme, m.settings)
+		// Set dimensions immediately if we have them
+		if m.lastWidth > 0 && m.lastHeight > 0 {
+			wtModel.SetDimensions(m.lastWidth, m.lastHeight)
+		}
 		m.worktreeSelectModel = wtModel
 		m.state = StateWorktreeSelect
 		return m, nil

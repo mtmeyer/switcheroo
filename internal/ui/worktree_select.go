@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"strings"
-
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -67,27 +65,11 @@ func (m WorktreeSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the worktree selection view
 func (m WorktreeSelectModel) View() string {
-	layout := calculateLayout(m.list.Width)
-	hasSize := m.list.Width > 0 && m.list.Height > 0
-
-	// Build components
-	title := m.list.RenderTitle()
-	search := m.list.RenderSearch(layout, hasSize)
-	list := m.list.RenderList(layout)
-	preview := m.list.RenderPreview()
-
-	// Combine list and preview side by side
-	content := renderSideBySide(list, preview, layout, m.list.Theme)
-
-	// Combine all sections
-	sections := []string{title, search, content, m.renderHelp()}
-	inner := strings.Join(sections, "\n")
-
-	// Wrap in container
-	return wrapInContainer(inner, layout, hasSize, m.list.Theme, m.list.Width, m.list.Height)
+	helpText := "↑/k up • ↓/j down • enter select • esc back • q/ctrl+c quit"
+	return RenderSelectionView(m.list, helpText)
 }
 
-func (m WorktreeSelectModel) renderHelp() string {
-	helpText := "↑/k up • ↓/j down • enter select • esc back • q/ctrl+c quit"
-	return m.list.Theme.HelpStyle.Render(helpText)
+// SetDimensions sets the terminal dimensions on the underlying list model
+func (m *WorktreeSelectModel) SetDimensions(width, height int) {
+	m.list.SetDimensions(width, height)
 }

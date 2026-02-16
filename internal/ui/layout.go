@@ -144,3 +144,34 @@ func wrapInContainer(inner string, layout layoutMetrics, hasSize bool, theme The
 		contentBox,
 	)
 }
+
+// SelectionViewModel represents a selection model that can be rendered
+type SelectionViewModel interface {
+	GetList() ListSelectModel
+	GetHelpText() string
+}
+
+// RenderSelectionView renders the complete selection UI with proper centering
+func RenderSelectionView(list ListSelectModel, helpText string) string {
+	layout := calculateLayout(list.Width)
+	hasSize := list.Width > 0 && list.Height > 0
+
+	// Build components
+	title := list.RenderTitle()
+	search := list.RenderSearch(layout, hasSize)
+	listContent := list.RenderList(layout)
+	preview := list.RenderPreview()
+
+	// Combine list and preview side by side
+	content := renderSideBySide(listContent, preview, layout, list.Theme)
+
+	// Help text
+	help := list.Theme.HelpStyle.Render(helpText)
+
+	// Combine all sections
+	sections := []string{title, search, content, help}
+	inner := strings.Join(sections, "\n")
+
+	// Wrap in container
+	return wrapInContainer(inner, layout, hasSize, list.Theme, list.Width, list.Height)
+}
