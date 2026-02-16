@@ -62,6 +62,11 @@ func (m ListSelectModel) GetCursor() int {
 	return m.cursor
 }
 
+// GetSettings returns the preview settings
+func (m ListSelectModel) GetSettings() PreviewSettings {
+	return m.settings
+}
+
 // UpdateItem updates an item in both items and filteredItems slices
 func (m *ListSelectModel) UpdateItem(index int, newItem Selectable) {
 	if index < 0 || index >= len(m.filteredItems) {

@@ -36,7 +36,7 @@ func NewRepoSelectModel(repos []RepoDisplay, theme Theme, settings PreviewSettin
 func (m RepoSelectModel) Init() tea.Cmd {
 	if selected := m.list.GetSelected(); selected != nil {
 		if repo, ok := selected.(RepoDisplay); ok {
-			return LoadRepoMetadata(repo)
+			return LoadRepoMetadata(repo, m.list.GetSettings())
 		}
 	}
 	return nil
@@ -75,7 +75,7 @@ func (m RepoSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Trigger metadata loading for newly selected repo
 			if selected := m.list.GetSelected(); selected != nil {
 				if repo, ok := selected.(RepoDisplay); ok {
-					return m, LoadRepoMetadata(repo)
+					return m, LoadRepoMetadata(repo, m.list.GetSettings())
 				}
 			}
 		case "down", "j":
@@ -83,7 +83,7 @@ func (m RepoSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Trigger metadata loading for newly selected repo
 			if selected := m.list.GetSelected(); selected != nil {
 				if repo, ok := selected.(RepoDisplay); ok {
-					return m, LoadRepoMetadata(repo)
+					return m, LoadRepoMetadata(repo, m.list.GetSettings())
 				}
 			}
 		case "enter":

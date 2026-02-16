@@ -286,56 +286,81 @@ func (w WorktreeDisplay) RenderMetadata(theme Theme, settings PreviewSettings) [
 	return lines
 }
 
-// LoadRepoMetadata loads expensive metadata for a repo when selected
-func LoadRepoMetadata(repo RepoDisplay) tea.Cmd {
+// LoadRepoMetadata loads expensive metadata for visible items when repo is selected
+func LoadRepoMetadata(repo RepoDisplay, settings PreviewSettings) tea.Cmd {
 	return func() tea.Msg {
 		msg := RepoMetadataLoadedMsg{
 			RepoPath: repo.Path,
 		}
 
 		if repo.HasWorktrees {
-			// Load worktree metadata
+			// Only fetch metadata for visible worktrees (maxPreviewListItems)
+			limit := len(repo.Worktrees)
+			if limit > maxPreviewListItems {
+				limit = maxPreviewListItems
+			}
+
 			worktrees := make([]WorktreeDisplay, len(repo.Worktrees))
-			for i, wt := range repo.Worktrees {
-				worktrees[i] = wt
-				// Load status
-				if status, err := git.GetWorktreeStatus(wt.Path); err == nil {
-					worktrees[i].Status = status
+			copy(worktrees, repo.Worktrees)
+
+			for i := 0; i < limit; i++ {
+				wt := &worktrees[i]
+
+				// Only fetch status if enabled
+				if settings.Worktree.ShowStatus {
+					if status, err := git.GetWorktreeStatus(wt.Path); err == nil {
+						wt.Status = status
+					}
 				}
-				// Load diff
-				if added, removed, err := git.GetWorktreeDiff(wt.Path); err == nil {
-					worktrees[i].DiffAdded = added
-					worktrees[i].DiffRemoved = removed
+
+				// Only fetch diff if enabled
+				if settings.Worktree.ShowLineDiff {
+					if added, removed, err := git.GetWorktreeDiff(wt.Path); err == nil {
+						wt.DiffAdded = added
+						wt.DiffRemoved = removed
+					}
 				}
 			}
 			msg.Worktrees = worktrees
 		} else {
-			// Load branch diffs
+			// Only fetch metadata for visible branches (maxPreviewListItems)
+			limit := len(repo.Branches)
+			if limit > maxPreviewListItems {
+				limit = maxPreviewListItems
+			}
+
 			branches := make([]BranchDisplay, len(repo.Branches))
-			for i, branch := range repo.Branches {
-				branches[i] = branch
-				if branch.Upstream != "" {
-					if added, removed, err := git.DiffAgainstUpstream(repo.Path, branch.Name, branch.Upstream); err == nil {
-						branches[i].DiffAdded = added
-						branches[i].DiffRemoved = removed
+			copy(branches, repo.Branches)
+
+			// Only fetch branch diffs if enabled
+			if settings.Repo.ShowBranchDiff {
+				for i := 0; i < limit; i++ {
+					branch := &branches[i]
+					if branch.Upstream != "" {
+						if added, removed, err := git.DiffAgainstUpstream(repo.Path, branch.Name, branch.Upstream); err == nil {
+							branch.DiffAdded = added
+							branch.DiffRemoved = removed
+						}
 					}
 				}
 			}
 			msg.Branches = branches
 
-			// Load line diff for current branch
-			for _, branch := range branches {
-				if branch.IsCurrent {
-					if branch.Status == "untracked" && repo.DefaultBranch != "" && repo.DefaultBranch != branch.Name {
-						if added, removed, err := git.DiffBranches(repo.Path, branch.Name, repo.DefaultBranch); err == nil {
-							msg.LineDiffAdded = added
-							msg.LineDiffRemoved = removed
+			// Only fetch line diff for current branch if enabled
+			if settings.Repo.ShowLineDiff {
+				for _, branch := range branches {
+					if branch.IsCurrent {
+						if branch.Status == "untracked" && repo.DefaultBranch != "" && repo.DefaultBranch != branch.Name {
+							if added, removed, err := git.DiffBranches(repo.Path, branch.Name, repo.DefaultBranch); err == nil {
+								msg.LineDiffAdded = added
+								msg.LineDiffRemoved = removed
+							}
+						} else {
+							msg.LineDiffAdded = branch.DiffAdded
+							msg.LineDiffRemoved = branch.DiffRemoved
 						}
-					} else {
-						msg.LineDiffAdded = branch.DiffAdded
-						msg.LineDiffRemoved = branch.DiffRemoved
+						break
 					}
-					break
 				}
 			}
 		}
