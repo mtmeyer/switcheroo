@@ -32,8 +32,13 @@ func NewRepoSelectModel(repos []RepoDisplay, theme Theme, settings PreviewSettin
 	}
 }
 
-// Init initializes the repo select model
+// Init initializes the repo select model and triggers metadata loading for the first repo
 func (m RepoSelectModel) Init() tea.Cmd {
+	if selected := m.list.GetSelected(); selected != nil {
+		if repo, ok := selected.(RepoDisplay); ok {
+			return LoadRepoMetadata(repo)
+		}
+	}
 	return nil
 }
 
@@ -43,12 +48,44 @@ func (m RepoSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.list.SetDimensions(msg.Width, msg.Height)
 
+	case RepoMetadataLoadedMsg:
+		// Update the repo with loaded metadata
+		if selected := m.list.GetSelected(); selected != nil {
+			if repo, ok := selected.(RepoDisplay); ok && repo.Path == msg.RepoPath {
+				// Update branches
+				if len(msg.Branches) > 0 {
+					repo.Branches = msg.Branches
+				}
+				// Update worktrees
+				if len(msg.Worktrees) > 0 {
+					repo.Worktrees = msg.Worktrees
+				}
+				// Update line diff
+				repo.LineDiffAdded = msg.LineDiffAdded
+				repo.LineDiffRemoved = msg.LineDiffRemoved
+				// Update in list
+				m.list.UpdateItem(m.list.GetCursor(), repo)
+			}
+		}
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":
 			m.list.MoveCursor(-1)
+			// Trigger metadata loading for newly selected repo
+			if selected := m.list.GetSelected(); selected != nil {
+				if repo, ok := selected.(RepoDisplay); ok {
+					return m, LoadRepoMetadata(repo)
+				}
+			}
 		case "down", "j":
 			m.list.MoveCursor(1)
+			// Trigger metadata loading for newly selected repo
+			if selected := m.list.GetSelected(); selected != nil {
+				if repo, ok := selected.(RepoDisplay); ok {
+					return m, LoadRepoMetadata(repo)
+				}
+			}
 		case "enter":
 			return m, m.list.SelectCurrent()
 		case "backspace":

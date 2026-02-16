@@ -62,6 +62,28 @@ func (m ListSelectModel) GetCursor() int {
 	return m.cursor
 }
 
+// UpdateItem updates an item in both items and filteredItems slices
+func (m *ListSelectModel) UpdateItem(index int, newItem Selectable) {
+	if index < 0 || index >= len(m.filteredItems) {
+		return
+	}
+	m.filteredItems[index] = newItem
+	// Also update in the original items slice
+	if m.searchQuery == "" {
+		// No filtering, items and filteredItems are the same
+		m.items[index] = newItem
+	} else {
+		// Find and update in original items
+		oldItem := m.filteredItems[index]
+		for i, item := range m.items {
+			if item.GetID() == oldItem.GetID() {
+				m.items[i] = newItem
+				break
+			}
+		}
+	}
+}
+
 // GetSelected returns the currently selected item
 func (m ListSelectModel) GetSelected() Selectable {
 	if len(m.filteredItems) == 0 || m.cursor >= len(m.filteredItems) {

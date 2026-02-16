@@ -43,3 +43,12 @@ func pathSelectedCmd(path string) tea.Cmd {
 		return PathSelectedMsg{Path: path}
 	}
 }
+
+// RepoMetadataLoadedMsg carries loaded metadata for a repo when selected
+type RepoMetadataLoadedMsg struct {
+	RepoPath        string
+	Branches        []BranchDisplay
+	Worktrees       []WorktreeDisplay
+	LineDiffAdded   int
+	LineDiffRemoved int
+}

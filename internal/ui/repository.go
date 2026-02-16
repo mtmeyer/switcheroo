@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"switcheroo/internal/git"
 )
@@ -26,6 +27,7 @@ type BranchDisplay struct {
 	Name        string
 	IsCurrent   bool
 	Status      string
+	Upstream    string
 	DiffAdded   int
 	DiffRemoved int
 }
@@ -74,20 +76,12 @@ func FromGitRepositories(repos []git.Repository) []RepoDisplay {
 					Name:        branch.Name,
 					IsCurrent:   branch.IsCurrent,
 					Status:      branch.Status,
+					Upstream:    branch.Upstream,
 					DiffAdded:   branch.DiffAdded,
 					DiffRemoved: branch.DiffRemoved,
 				}
 				if branch.IsCurrent {
 					displays[i].CurrentBranch = branch.Name
-					if branch.Status == "untracked" && repo.DefaultBranch != "" && repo.DefaultBranch != branch.Name {
-						if added, removed, err := git.DiffBranches(repo.Path, branch.Name, repo.DefaultBranch); err == nil {
-							displays[i].LineDiffAdded = added
-							displays[i].LineDiffRemoved = removed
-						}
-					} else {
-						displays[i].LineDiffAdded = branch.DiffAdded
-						displays[i].LineDiffRemoved = branch.DiffRemoved
-					}
 				}
 			}
 			sort.Slice(branches, func(a, b int) bool {
@@ -290,4 +284,62 @@ func (w WorktreeDisplay) RenderMetadata(theme Theme, settings PreviewSettings) [
 	}
 
 	return lines
+}
+
+// LoadRepoMetadata loads expensive metadata for a repo when selected
+func LoadRepoMetadata(repo RepoDisplay) tea.Cmd {
+	return func() tea.Msg {
+		msg := RepoMetadataLoadedMsg{
+			RepoPath: repo.Path,
+		}
+
+		if repo.HasWorktrees {
+			// Load worktree metadata
+			worktrees := make([]WorktreeDisplay, len(repo.Worktrees))
+			for i, wt := range repo.Worktrees {
+				worktrees[i] = wt
+				// Load status
+				if status, err := git.GetWorktreeStatus(wt.Path); err == nil {
+					worktrees[i].Status = status
+				}
+				// Load diff
+				if added, removed, err := git.GetWorktreeDiff(wt.Path); err == nil {
+					worktrees[i].DiffAdded = added
+					worktrees[i].DiffRemoved = removed
+				}
+			}
+			msg.Worktrees = worktrees
+		} else {
+			// Load branch diffs
+			branches := make([]BranchDisplay, len(repo.Branches))
+			for i, branch := range repo.Branches {
+				branches[i] = branch
+				if branch.Upstream != "" {
+					if added, removed, err := git.DiffAgainstUpstream(repo.Path, branch.Name, branch.Upstream); err == nil {
+						branches[i].DiffAdded = added
+						branches[i].DiffRemoved = removed
+					}
+				}
+			}
+			msg.Branches = branches
+
+			// Load line diff for current branch
+			for _, branch := range branches {
+				if branch.IsCurrent {
+					if branch.Status == "untracked" && repo.DefaultBranch != "" && repo.DefaultBranch != branch.Name {
+						if added, removed, err := git.DiffBranches(repo.Path, branch.Name, repo.DefaultBranch); err == nil {
+							msg.LineDiffAdded = added
+							msg.LineDiffRemoved = removed
+						}
+					} else {
+						msg.LineDiffAdded = branch.DiffAdded
+						msg.LineDiffRemoved = branch.DiffRemoved
+					}
+					break
+				}
+			}
+		}
+
+		return msg
+	}
 }

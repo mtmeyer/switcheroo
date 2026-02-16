@@ -32,7 +32,6 @@ func GetWorktrees(repoPath string) ([]Worktree, error) {
 		if wt.Path == repoPath {
 			continue
 		}
-		populateWorktreeMetadata(wt)
 		additionalWorktrees = append(additionalWorktrees, *wt)
 	}
 
@@ -104,13 +103,6 @@ func GetBranches(repoPath string) ([]Branch, error) {
 		}
 		track := parts[3]
 		branch.Status = determineBranchStatus(branch.Upstream, track)
-		if branch.Upstream != "" {
-			added, removed, err := diffAgainstUpstream(repoPath, branch.Name, branch.Upstream)
-			if err == nil {
-				branch.DiffAdded = added
-				branch.DiffRemoved = removed
-			}
-		}
 		branches = append(branches, branch)
 	}
 
@@ -125,18 +117,6 @@ func GetCurrentBranch(repoPath string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil
-}
-
-func populateWorktreeMetadata(wt *Worktree) {
-	status, err := workingTreeStatus(wt.Path)
-	if err == nil {
-		wt.Status = status
-	}
-	added, removed, err := diffInWorktree(wt.Path)
-	if err == nil {
-		wt.DiffAdded = added
-		wt.DiffRemoved = removed
-	}
 }
 
 func workingTreeStatus(path string) (string, error) {
@@ -165,7 +145,7 @@ func diffInWorktree(path string) (int, int, error) {
 	return added, removed, nil
 }
 
-func diffAgainstUpstream(repoPath, branch, upstream string) (int, int, error) {
+func diffBranchAgainstUpstream(repoPath, branch, upstream string) (int, int, error) {
 	if branch == "" || upstream == "" {
 		return 0, 0, nil
 	}
@@ -272,4 +252,19 @@ func branchExists(repoPath, branch string) bool {
 	}
 	cmd := exec.Command("git", "-C", repoPath, "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
 	return cmd.Run() == nil
+}
+
+// GetWorktreeStatus returns the status of a worktree (clean, modified, untracked)
+func GetWorktreeStatus(path string) (string, error) {
+	return workingTreeStatus(path)
+}
+
+// GetWorktreeDiff returns the diff stats for a worktree
+func GetWorktreeDiff(path string) (int, int, error) {
+	return diffInWorktree(path)
+}
+
+// DiffAgainstUpstream returns the diff stats between a branch and its upstream
+func DiffAgainstUpstream(repoPath, branch, upstream string) (int, int, error) {
+	return diffBranchAgainstUpstream(repoPath, branch, upstream)
 }
